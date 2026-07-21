@@ -1,0 +1,41 @@
+# ROS 2 workspace build artifacts (if this package is ever placed in a workspace)
+build/
+install/
+log/
+
+# Colcon
+.colcon/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# IDEs
+.vscode/
+.idea/
+
+# Qt Creator
+*.pro.user
+*.pro.user.*
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Temporary files
+*~
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

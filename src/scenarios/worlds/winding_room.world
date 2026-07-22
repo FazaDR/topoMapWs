@@ -216,7 +216,7 @@
         <geometry>
           <box>
             <size>20 0.2 2.5</size>
-          </box>
+        </box>
         </geometry>
       </collision>
 

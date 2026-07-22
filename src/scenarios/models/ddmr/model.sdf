@@ -187,73 +187,80 @@
       <child>front_caster</child>
       <pose relative_to="base_link">0.14 0.0 -0.09 0 0 0</pose>
     </joint>
-
-
+    <!-- ================= LiDAR Mount ================= -->
     <link name="lidar_mount">
-
-      <pose relative_to="base_link">0 0 0.29 0 0 0</pose>
-
+      <pose relative_to="base_link">
+        0.0
+        0.0
+        0.29
+        0 0 0
+    </pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
           <ixx>0.0001</ixx>
           <iyy>0.0001</iyy>
           <izz>0.0001</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
         </inertia>
       </inertial>
-
       <visual name="mount_visual">
         <geometry>
           <cylinder>
             <radius>0.015</radius>
-            <length>0.40</length>
+            <length>0.4</length>
           </cylinder>
         </geometry>
-
         <material>
           <ambient>0.2 0.2 0.2 1</ambient>
           <diffuse>0.4 0.4 0.4 1</diffuse>
         </material>
       </visual>
-
       <collision name="mount_collision">
         <geometry>
           <cylinder>
             <radius>0.015</radius>
-            <length>0.40</length>
+            <length>0.4</length>
           </cylinder>
         </geometry>
       </collision>
-
     </link>
-
-
+    <joint name="lidar_mount_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_mount</child>
+    </joint>
+    <!-- ================= LiDAR ================= -->
     <link name="lidar_link">
-
-      <pose relative_to="lidar_mount">0 0 0.20 0 0 0</pose>
-
+      <pose relative_to="lidar_mount">
+        0.0
+        0.0
+        0.2
+        0 0 0
+    </pose>
       <inertial>
         <mass>1.0</mass>
         <inertia>
           <ixx>0.01</ixx>
           <iyy>0.01</iyy>
           <izz>0.01</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
         </inertia>
       </inertial>
-
       <visual name="visual">
         <geometry>
           <sphere>
             <radius>0.05</radius>
           </sphere>
         </geometry>
-
         <material>
           <ambient>1 0 1 1</ambient>
           <diffuse>1 0 1 1</diffuse>
         </material>
       </visual>
-
       <collision name="collision">
         <geometry>
           <sphere>
@@ -261,78 +268,38 @@
           </sphere>
         </geometry>
       </collision>
-
-    <sensor name="lidar" type="gpu_lidar">
-
-      <update_rate>10</update_rate>
-
-      <topic>points</topic>
-
-      <pose>0 0 0 0 0 0</pose>
-
-      <ray>
-
-        <scan>
-
-          <horizontal>
-
-            <samples>256</samples>
-
-            <resolution>1</resolution>
-
-            <min_angle>0</min_angle>
-
-            <max_angle>6.283185307</max_angle>
-
-          </horizontal>
-
-          <vertical>
-
-            <samples>64</samples>
-
-            <resolution>1</resolution>
-
-            <min_angle>-0.785398163</min_angle>
-
-            <max_angle>0.785398163</max_angle>
-
-          </vertical>
-
-        </scan>
-
-        <range>
-
-          <min>0.1</min>
-
-          <max>20.0</max>
-
-          <resolution>0.01</resolution>
-
-        </range>
-
-      </ray>
-
-      <always_on>true</always_on>
-      <visualize>true</visualize>
-
-    </sensor>
-
+      <sensor name="lidar" type="gpu_lidar">
+        <update_rate>10</update_rate>
+        <topic>points</topic>
+        <pose>0 0 0 0 0 0</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>256</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>6.283185307179586</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>64</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.7853981633974483</min_angle>
+              <max_angle>0.7853981633974483</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>20.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </ray>
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+      </sensor>
     </link>
-
-
-
-    <joint name="lidar_mount_joint" type="fixed">
-        <parent>base_link</parent>
-        <child>lidar_mount</child>
-    </joint>
-
     <joint name="lidar_joint" type="fixed">
-        <parent>lidar_mount</parent>
-        <child>lidar_link</child>
+      <parent>lidar_mount</parent>
+      <child>lidar_link</child>
     </joint>
-
   </model>
-
-
-
 </sdf>

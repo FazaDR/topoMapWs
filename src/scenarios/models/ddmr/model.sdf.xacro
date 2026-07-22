@@ -1,0 +1,363 @@
+<?xml version="1.0" ?>
+<sdf version="1.8" xmlns:xacro="http://ros.org/wiki/xacro">
+  <model name='ddmr' canonical_link='base_link'>
+
+    <!-- Lidar param -->
+        <!-- Mount -->
+    <xacro:property name="lidar_mount_x" value="0.0"/>
+    <xacro:property name="lidar_mount_y" value="0.0"/>
+    <xacro:property name="lidar_mount_z" value="0.29"/>
+
+    <xacro:property name="lidar_mount_radius" value="0.015"/>
+    <xacro:property name="lidar_mount_length" value="0.40"/>
+    <xacro:property name="lidar_mount_mass" value="0.10"/>
+
+        <!-- Sensor -->
+    <xacro:property name="lidar_x" value="0.0"/>
+    <xacro:property name="lidar_y" value="0.0"/>
+    <xacro:property name="lidar_z" value="${lidar_mount_length/2}"/>
+
+    <xacro:property name="lidar_radius" value="0.05"/>
+    <xacro:property name="lidar_mass" value="1.0"/>
+
+        <!-- Scan -->
+    <xacro:property name="lidar_update_rate" value="10"/>
+
+    <xacro:property name="lidar_horizontal_samples" value="256"/>
+    <xacro:property name="lidar_vertical_samples" value="64"/>
+
+    <xacro:property name="lidar_horizontal_min_angle" value="0"/>
+    <xacro:property name="lidar_horizontal_max_angle" value="${2*pi}"/>
+
+    <xacro:property name="lidar_vertical_min_angle" value="${-pi/4}"/>
+    <xacro:property name="lidar_vertical_max_angle" value="${pi/4}"/>
+
+    <xacro:property name="lidar_min_range" value="0.1"/>
+    <xacro:property name="lidar_max_range" value="20.0"/>
+    <xacro:property name="lidar_range_resolution" value="0.01"/>
+
+
+    <!-- Define robot constants -->
+    <xacro:property name="base_width" value="0.31"/>
+    <xacro:property name="base_length" value="0.42"/>
+    <xacro:property name="base_height" value="0.18"/>
+
+    <xacro:property name="wheel_radius" value="0.10"/>
+    <xacro:property name="wheel_width" value="0.04"/>
+    <xacro:property name="wheel_ygap" value="0.025"/>
+    <xacro:property name="wheel_zoff" value="0.05"/>
+    <xacro:property name="wheel_xoff" value="0.12"/>
+
+    <xacro:property name="caster_xoff" value="0.14"/>
+
+    <!-- Define some commonly used inertial properties  -->
+    <xacro:macro name="box_inertia" params="m w h d">
+      <inertial>
+        <pose>0 0 0 ${pi/2} 0 ${pi/2}</pose>
+        <mass>${m}</mass>
+        <inertia>
+          <ixx>${(m/12) * (h*h + d*d)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(m/12) * (w*w + d*d)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(m/12) * (w*w + h*h)}</izz>
+        </inertia>
+      </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="cylinder_inertia" params="m r h">
+      <inertial>
+        <pose>0 0 0 ${pi/2} 0 0</pose>
+        <mass>${m}</mass>
+        <inertia>
+          <ixx>${(m/12) * (3*r*r + h*h)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(m/12) * (3*r*r + h*h)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(m/2) * (r*r)}</izz>
+        </inertia>
+      </inertial>
+    </xacro:macro>
+
+
+    <xacro:macro name="sphere_inertia" params="m r">
+      <inertial>
+        <mass>${m}</mass>
+        <inertia>
+          <ixx>${(2/5) * m * (r*r)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(2/5) * m * (r*r)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(2/5) * m * (r*r)}</izz>
+        </inertia>
+      </inertial>
+    </xacro:macro>
+
+    <!-- Robot Base -->
+    <link name='base_link'>
+      <must_be_base_link>true</must_be_base_link>
+      <visual name="base_link_visual">
+        <geometry>
+          <box><size>
+            ${base_length} ${base_width} ${base_height}
+          </size></box>
+        </geometry>
+        <material>
+          <ambient>0 1 1 1</ambient>
+          <diffuse>0 1 1 1</diffuse>
+        </material>
+      </visual>
+
+      <collision name="base_link_collision">
+        <geometry>
+          <box><size>
+            ${base_length} ${base_width} ${base_height}
+          </size></box>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- Robot Footprint -->
+    <link name='base_footprint'>
+      <pose relative_to="base_joint"/>
+      <xacro:box_inertia m="15" w="${base_width}" d="${base_length}" h="${base_height}"/>
+    </link>
+
+    <joint name='base_joint' type='fixed'>
+      <parent>base_link</parent>
+      <child>base_footprint</child>
+      <pose relative_to="base_link">0.0 0.0 ${-(wheel_radius+wheel_zoff)} 0 0 0</pose>
+    </joint>
+
+
+    <!-- Wheels -->
+    <xacro:macro name="wheel" params="prefix x_reflect y_reflect">
+      <link name="${prefix}_link">
+        <pose relative_to="${prefix}_joint"/>
+
+        <visual name="${prefix}_link_visual">
+          <pose relative_to="${prefix}_link">0 0 0 ${pi/2} 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>${wheel_radius}</radius>
+              <length>${wheel_width}</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1.0</ambient>
+            <diffuse>0.7 0.7 0.7 1.0</diffuse>
+          </material>
+        </visual>
+
+        <collision name="${prefix}_link_collision">
+          <pose relative_to="${prefix}_link">0 0 0 ${pi/2} 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>${wheel_radius}</radius>
+              <length>${wheel_width}</length>
+            </cylinder>
+          </geometry>
+        </collision>
+
+        <xacro:cylinder_inertia m="0.5" r="${wheel_radius}" h="${wheel_width}"/>
+      </link>
+
+      <joint name="${prefix}_joint" type="revolute">
+        <parent>base_link</parent>
+        <child>${prefix}_link</child>
+        <pose relative_to="base_link">${x_reflect*wheel_xoff} ${y_reflect*(base_width/2+wheel_ygap)} ${-wheel_zoff} 0 0 0</pose>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit>
+            <lower>-inf</lower>
+            <upper>inf</upper>
+          </limit>
+        </axis>
+      </joint>
+    </xacro:macro>
+
+    <xacro:wheel prefix="drivewhl_l" x_reflect="-1" y_reflect="1" />
+    <xacro:wheel prefix="drivewhl_r" x_reflect="-1" y_reflect="-1" />
+
+    <link name="front_caster">
+      <pose relative_to="caster_joint"/>
+
+      <visual name="front_caster_visual">
+        <geometry>
+          <sphere>
+            <radius>${(wheel_radius+wheel_zoff-(base_height/2))}</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0 1 1 1</ambient>
+          <diffuse>0 1 1 1</diffuse>
+        </material>
+      </visual>
+
+      <collision name="front_caster_collision">
+        <geometry>
+          <sphere>
+            <radius>${(wheel_radius+wheel_zoff-(base_height/2))}</radius>
+          </sphere>
+        </geometry>
+      </collision>
+
+      <xacro:sphere_inertia m="0.5" r="${(wheel_radius+wheel_zoff-(base_height/2))}"/>
+    </link>
+
+    <joint name="caster_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>front_caster</child>
+      <pose relative_to="base_link">${caster_xoff} 0.0 ${-(base_height/2)} 0 0 0</pose>
+    </joint>
+
+    <!-- ================= LiDAR Mount ================= -->
+
+    <link name="lidar_mount">
+
+    <pose relative_to="base_link">
+        ${lidar_mount_x}
+        ${lidar_mount_y}
+        ${lidar_mount_z}
+        0 0 0
+    </pose>
+
+    <inertial>
+        <mass>${lidar_mount_mass}</mass>
+        <inertia>
+        <ixx>0.0001</ixx>
+        <iyy>0.0001</iyy>
+        <izz>0.0001</izz>
+        <ixy>0</ixy>
+        <ixz>0</ixz>
+        <iyz>0</iyz>
+        </inertia>
+    </inertial>
+
+    <visual name="mount_visual">
+        <geometry>
+        <cylinder>
+            <radius>${lidar_mount_radius}</radius>
+            <length>${lidar_mount_length}</length>
+        </cylinder>
+        </geometry>
+
+        <material>
+        <ambient>0.2 0.2 0.2 1</ambient>
+        <diffuse>0.4 0.4 0.4 1</diffuse>
+        </material>
+    </visual>
+
+    <collision name="mount_collision">
+        <geometry>
+        <cylinder>
+            <radius>${lidar_mount_radius}</radius>
+            <length>${lidar_mount_length}</length>
+        </cylinder>
+        </geometry>
+    </collision>
+
+    </link>
+
+    <joint name="lidar_mount_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>lidar_mount</child>
+    </joint>
+
+    <!-- ================= LiDAR ================= -->
+
+    <link name="lidar_link">
+
+    <pose relative_to="lidar_mount">
+        ${lidar_x}
+        ${lidar_y}
+        ${lidar_z}
+        0 0 0
+    </pose>
+
+    <inertial>
+        <mass>${lidar_mass}</mass>
+        <inertia>
+        <ixx>0.01</ixx>
+        <iyy>0.01</iyy>
+        <izz>0.01</izz>
+        <ixy>0</ixy>
+        <ixz>0</ixz>
+        <iyz>0</iyz>
+        </inertia>
+    </inertial>
+
+    <visual name="visual">
+        <geometry>
+        <sphere>
+            <radius>${lidar_radius}</radius>
+        </sphere>
+        </geometry>
+
+        <material>
+        <ambient>1 0 1 1</ambient>
+        <diffuse>1 0 1 1</diffuse>
+        </material>
+    </visual>
+
+    <collision name="collision">
+        <geometry>
+        <sphere>
+            <radius>${lidar_radius}</radius>
+        </sphere>
+        </geometry>
+    </collision>
+
+    <sensor name="lidar" type="gpu_lidar">
+
+        <update_rate>${lidar_update_rate}</update_rate>
+
+        <topic>points</topic>
+
+        <pose>0 0 0 0 0 0</pose>
+
+        <ray>
+
+        <scan>
+
+            <horizontal>
+            <samples>${lidar_horizontal_samples}</samples>
+            <resolution>1</resolution>
+            <min_angle>${lidar_horizontal_min_angle}</min_angle>
+            <max_angle>${lidar_horizontal_max_angle}</max_angle>
+            </horizontal>
+
+            <vertical>
+            <samples>${lidar_vertical_samples}</samples>
+            <resolution>1</resolution>
+            <min_angle>${lidar_vertical_min_angle}</min_angle>
+            <max_angle>${lidar_vertical_max_angle}</max_angle>
+            </vertical>
+
+        </scan>
+
+        <range>
+            <min>${lidar_min_range}</min>
+            <max>${lidar_max_range}</max>
+            <resolution>${lidar_range_resolution}</resolution>
+        </range>
+
+        </ray>
+
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+
+    </sensor>
+
+    </link>
+
+    <joint name="lidar_joint" type="fixed">
+    <parent>lidar_mount</parent>
+    <child>lidar_link</child>
+    </joint>
+  </model>
+
+</sdf>

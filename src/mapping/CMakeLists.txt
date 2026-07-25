@@ -9,6 +9,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
+
 include_directories(include)
 
 add_executable(mapping_node
@@ -19,6 +22,11 @@ add_executable(mapping_node
 ament_target_dependencies(mapping_node
   rclcpp
   sensor_msgs
+)
+
+target_link_libraries(mapping_node
+  gz-transport13::core
+  gz-msgs10::core
 )
 
 install(TARGETS

@@ -15,4 +15,11 @@
   <export>
     <build_type>ament_cmake</build_type>
   </export>
+
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+
+  <depend>gz-transport13</depend>
+  <depend>gz-msgs10</depend>
 </package>

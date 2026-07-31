@@ -28,7 +28,7 @@
         <uri>model://ddmr</uri>
 
         <pose>
-            -8.5 8.5 0.15 0 0 0
+            -8.5 8.5 0.16 0 0 0
         </pose>
 
     </include>

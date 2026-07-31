@@ -96,12 +96,52 @@ void ControllerNode::controlLoop()
 
     const auto &goal = waypoints_[current_waypoint_];
 
-    double dx = goal.x - x;
-    double dy = goal.y - y;
+    Waypoint previous =
+        (current_waypoint_ == 0)
+        ? Waypoint{0.0, 0.0}
+        : waypoints_[current_waypoint_ - 1];
 
-    double distance = std::hypot(dx, dy);
+    double distance = std::hypot(goal.x - x, goal.y - y);
 
-    double desired_heading = std::atan2(dy, dx);
+    //------------------------------------------
+    // Path direction
+    //------------------------------------------
+
+    double path_x = goal.x - previous.x;
+    double path_y = goal.y - previous.y;
+
+    double path_length = std::hypot(path_x, path_y);
+
+    if (path_length < 1e-6)
+    {
+        RCLCPP_WARN(
+            get_logger(),
+            "Waypoint %zu is identical to previous waypoint.",
+            current_waypoint_);
+        return;
+    }
+
+    path_x /= path_length;
+    path_y /= path_length;
+
+    //------------------------------------------
+    // Tracking errors
+    //------------------------------------------
+
+    double goal_to_robot_x = x - goal.x;
+    double goal_to_robot_y = y - goal.y;
+
+    double along_track =
+        goal_to_robot_x * path_x +
+        goal_to_robot_y * path_y;
+
+    double cross_track =
+        goal_to_robot_x * (-path_y) +
+        goal_to_robot_y * path_x;
+
+    double desired_heading =
+        std::atan2(path_y, path_x)
+        - std::atan2(2.0 * cross_track, 1.0);
 
     double heading_error = desired_heading - yaw;
 
@@ -121,97 +161,63 @@ void ControllerNode::controlLoop()
     switch (state_)
     {
     case State::ROTATE:
+    {
+        cmd.angular.z = std::clamp(
+            2.0 * heading_error,
+            -10.0,
+            10.0);
+
+        if (std::abs(heading_error) < heading_threshold)
         {
-            double ang_cmd = 2.0 * heading_error;
+            state_ = State::DRIVE;
 
-            constexpr double min_turn_speed = 0.0;
+            RCLCPP_INFO(
+                get_logger(),
+                "Heading aligned.");
+        }
 
-            if (std::abs(heading_error) > heading_threshold &&
-                std::abs(ang_cmd) < min_turn_speed)
+        break;
+    }
+
+    case State::DRIVE:
+    {
+        cmd.linear.x = std::clamp(
+            0.6 * distance,
+            0.0,
+            0.4);
+
+        if (along_track >= 0.0 || distance < goal_threshold)
+        {
+            current_waypoint_++;
+
+            if (current_waypoint_ >= waypoints_.size())
             {
-                ang_cmd = std::copysign(min_turn_speed, ang_cmd);
-            }
+                state_ = State::FINISHED;
 
-            cmd.angular.z = std::clamp(
-                ang_cmd,
-                -10.0,
-                10.0);
-
-            if (std::abs(heading_error) < heading_threshold)
-            {
-                state_ = State::DRIVE;
+                cmd.linear.x = 0.0;
+                cmd.angular.z = 0.0;
 
                 RCLCPP_INFO(
                     get_logger(),
-                    "Heading aligned.");
+                    "Mission complete.");
             }
+            else
+            {
+                state_ = State::ROTATE;
 
-            break;
+                RCLCPP_INFO(
+                    get_logger(),
+                    "Waypoint %zu reached.",
+                    current_waypoint_ - 1);
+            }
         }
 
-    case State::DRIVE:
-        {
-            double lin_cmd = 0.6 * distance;
-
-            // Minimum forward speed
-            constexpr double min_drive_speed = 0.0;
-
-            if (distance > goal_threshold &&
-                lin_cmd < min_drive_speed)
-            {
-                lin_cmd = min_drive_speed;
-            }
-
-            cmd.linear.x = std::clamp(
-                lin_cmd,
-                0.0,
-                0.4);
-
-            if (distance < goal_threshold)
-            {
-                current_waypoint_++;
-
-                if (current_waypoint_ >= waypoints_.size())
-                {
-                    state_ = State::FINISHED;
-
-                    cmd.linear.x = 0.0;
-                    cmd.angular.z = 0.0;
-
-                    RCLCPP_INFO(
-                        get_logger(),
-                        "Mission complete.");
-                }
-                else
-                {
-                    state_ = State::ROTATE;
-
-                    RCLCPP_INFO(
-                        get_logger(),
-                        "Waypoint %zu reached.",
-                        current_waypoint_ - 1);
-                }
-            }
-
-            break;
-        }
-
-
-
+        break;
+    }
 
     case State::FINISHED:
         break;
     }
-
-    // RCLCPP_INFO_THROTTLE(
-    //     get_logger(),
-    //     *get_clock(),
-    //     100,
-    //     "state=%d err=%.2f cmd_lin=%.2f cmd_ang=%.2f",
-    //     static_cast<int>(state_),
-    //     heading_error,
-    //     cmd.linear.x,
-    //     cmd.angular.z);
 
     cmd_vel_pub_->publish(cmd);
 

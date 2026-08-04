@@ -16,9 +16,15 @@ ControllerNode::ControllerNode()
   state_(State::ROTATE)
 {
     waypoints_ = {
-        {2.0, 0},
-        {2.0, -0.5},
-        {0.0, 0.0}
+        {16, 0},
+        {16, -4},
+        {0.0, -4},
+        {0.0, -8},
+        {16.0, -8},
+        {16.0, -12},
+        {0.0, -12},
+        {0.0, -16},
+        {16.0, -16},
     };
 
     gz_node_.Subscribe(
@@ -164,8 +170,8 @@ void ControllerNode::controlLoop()
     {
         cmd.angular.z = std::clamp(
             2.0 * heading_error,
-            -10.0,
-            10.0);
+            -5.0,
+            5.0);
 
         if (std::abs(heading_error) < heading_threshold)
         {
@@ -182,9 +188,9 @@ void ControllerNode::controlLoop()
     case State::DRIVE:
     {
         cmd.linear.x = std::clamp(
-            0.6 * distance,
+            0.4 * distance,
             0.0,
-            0.4);
+            3.0);
 
         if (along_track >= 0.0 || distance < goal_threshold)
         {

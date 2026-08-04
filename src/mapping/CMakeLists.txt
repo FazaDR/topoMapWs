@@ -11,26 +11,35 @@ find_package(sensor_msgs REQUIRED)
 
 find_package(gz-transport13 REQUIRED)
 find_package(gz-msgs10 REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
+find_package(pcl_conversions REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(include)
 
-add_executable(mapping_node
+add_executable(preprocess_node
   src/main.cpp
-  src/mapping_node.cpp
+  src/preprocess_node.cpp
 )
 
-ament_target_dependencies(mapping_node
+ament_target_dependencies(preprocess_node
   rclcpp
   sensor_msgs
+  pcl_conversions
 )
 
-target_link_libraries(mapping_node
+target_link_libraries(preprocess_node
   gz-transport13::core
   gz-msgs10::core
+  ${PCL_LIBRARIES}
+)
+
+target_link_libraries(preprocess_node
+    Eigen3::Eigen
 )
 
 install(TARGETS
-  mapping_node
+  preprocess_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

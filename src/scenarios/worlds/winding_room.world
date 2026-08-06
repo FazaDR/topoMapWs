@@ -1,37 +1,32 @@
 <?xml version="1.0"?>
 <sdf version="1.9">
 
-
-
 <world name="winding_room">
 
-    <plugin
+  <plugin
     filename="gz-sim-physics-system"
     name="gz::sim::systems::Physics"/>
 
-    <plugin
+  <plugin
     filename="gz-sim-user-commands-system"
     name="gz::sim::systems::UserCommands"/>
 
-    <plugin
+  <plugin
     filename="gz-sim-scene-broadcaster-system"
     name="gz::sim::systems::SceneBroadcaster"/>
 
-    <plugin
-      filename="gz-sim-sensors-system"
-      name="gz::sim::systems::Sensors">
-      <render_engine>ogre2</render_engine>
-    </plugin>
+  <plugin
+    filename="gz-sim-sensors-system"
+    name="gz::sim::systems::Sensors">
+    <render_engine>ogre2</render_engine>
+  </plugin>
 
-
-    <include>
-        <uri>model://ddmr</uri>
-
-        <pose>
-            -8.5 8.5 0.16 0 0 0
-        </pose>
-
-    </include>
+  
+  <include>
+    <uri>model://ddmr</uri>
+    <pose>-8.5 8.5 0.16 0 0 0</pose>
+  </include>
+ 
 
   <!-- ===================================================== -->
   <!-- Physics -->
@@ -59,9 +54,7 @@
   <!-- ===================================================== -->
 
   <light name="sun" type="directional">
-
     <cast_shadows>true</cast_shadows>
-
     <pose>0 0 20 0 0 0</pose>
 
     <diffuse>1 1 1 1</diffuse>
@@ -75,7 +68,6 @@
     </attenuation>
 
     <direction>-0.5 0.3 -1</direction>
-
   </light>
 
   <!-- ===================================================== -->
@@ -83,26 +75,24 @@
   <!-- ===================================================== -->
 
   <model name="floor">
-
     <static>true</static>
 
-    <pose>0 0 -0.025 0 0 0</pose>
+    <!-- y: 0.5 -> 0 -->
+    <pose>-2 -2 -0.025 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
-            <size>20 20 0.05</size>
+            <size>24 24 0.05</size>
           </box>
         </geometry>
       </collision>
 
       <visual name="visual">
-
         <geometry>
           <box>
-            <size>20 20 0.05</size>
+            <size>24 24 0.05</size>
           </box>
         </geometry>
 
@@ -110,11 +100,8 @@
           <ambient>0.92 0.92 0.92 1</ambient>
           <diffuse>0.92 0.92 0.92 1</diffuse>
         </material>
-
       </visual>
-
     </link>
-
   </model>
 
   <!-- ===================================================== -->
@@ -122,17 +109,16 @@
   <!-- ===================================================== -->
 
   <model name="left_wall">
-
     <static>true</static>
 
-    <pose>-10 0 1.25 0 0 0</pose>
+    <!-- y: 0 -> -0.5 -->
+    <pose>-10 -2.0 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
-            <size>0.2 20 2.5</size>
+            <size>0.2 16 2.5</size>
           </box>
         </geometry>
       </collision>
@@ -140,27 +126,49 @@
       <visual name="visual">
         <geometry>
           <box>
-            <size>0.2 20 2.5</size>
+            <size>0.2 16 2.5</size>
           </box>
         </geometry>
       </visual>
-
     </link>
+  </model>
 
+  <model name="left_wall_outer">
+    <static>true</static>
+
+    <!-- y: 0 -> -0.5 -->
+    <pose>-14 -2.0 1.25 0 0 0</pose>
+
+    <link name="link">
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.2 24 2.5</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.2 24 2.5</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
   </model>
 
   <model name="right_wall">
-
     <static>true</static>
 
-    <pose>10 0 1.25 0 0 0</pose>
+    <!-- y: 0.5 -> 0 -->
+    <pose>10 -2 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
-            <size>0.2 20 2.5</size>
+            <size>0.2 24 2.5</size>
           </box>
         </geometry>
       </collision>
@@ -168,27 +176,24 @@
       <visual name="visual">
         <geometry>
           <box>
-            <size>0.2 20 2.5</size>
+            <size>0.2 24 2.5</size>
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
   <model name="bottom_wall">
-
     <static>true</static>
 
-    <pose>0 -10 1.25 0 0 0</pose>
+    <!-- y: -9.5 -> -10 -->
+    <pose>-2 -10 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
-            <size>20 0.2 2.5</size>
+            <size>16 0.2 2.5</size>
           </box>
         </geometry>
       </collision>
@@ -196,41 +201,61 @@
       <visual name="visual">
         <geometry>
           <box>
-            <size>20 0.2 2.5</size>
+            <size>16 0.2 2.5</size>
           </box>
         </geometry>
       </visual>
-
     </link>
+  </model>
 
+  <model name="bottom_wall_outer">
+    <static>true</static>
+
+    <!-- y: -9.5 -> -10 -->
+    <pose>-2 -14 1.25 0 0 0</pose>
+
+    <link name="link">
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>24 0.2 2.5</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>24 0.2 2.5</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
   </model>
 
   <model name="top_wall">
-
     <static>true</static>
 
-    <pose>0 10 1.25 0 0 0</pose>
+    <!-- y: 10.5 -> 10 -->
+    <pose>-2 10 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
-            <size>20 0.2 2.5</size>
-        </box>
+            <size>24 0.2 2.5</size>
+          </box>
         </geometry>
       </collision>
 
       <visual name="visual">
         <geometry>
           <box>
-            <size>20 0.2 2.5</size>
+            <size>24 0.2 2.5</size>
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
   <!-- ===================================================== -->
@@ -238,13 +263,12 @@
   <!-- ===================================================== -->
 
   <model name="wall1">
-
     <static>true</static>
 
-    <pose>-2 6.5 1.25 0 0 0</pose>
+    <!-- y: 6.5 -> 6 -->
+    <pose>-2 6 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
@@ -260,19 +284,16 @@
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
   <model name="wall2">
-
     <static>true</static>
 
-    <pose>2 2.5 1.25 0 0 0</pose>
+    <!-- y: 2.5 -> 2 -->
+    <pose>2 2 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
@@ -288,19 +309,16 @@
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
   <model name="wall3">
-
     <static>true</static>
 
-    <pose>-2 -1.5 1.25 0 0 0</pose>
+    <!-- y: -1.5 -> -2 -->
+    <pose>-2 -2 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
@@ -316,19 +334,16 @@
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
   <model name="wall4">
-
     <static>true</static>
 
-    <pose>2 -5.5 1.25 0 0 0</pose>
+    <!-- y: -5.5 -> -6 -->
+    <pose>2 -6 1.25 0 0 0</pose>
 
     <link name="link">
-
       <collision name="collision">
         <geometry>
           <box>
@@ -344,9 +359,7 @@
           </box>
         </geometry>
       </visual>
-
     </link>
-
   </model>
 
 </world>

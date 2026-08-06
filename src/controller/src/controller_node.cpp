@@ -188,9 +188,9 @@ void ControllerNode::controlLoop()
     case State::DRIVE:
     {
         cmd.linear.x = std::clamp(
-            0.4 * distance,
+            0.7 * distance,
             0.0,
-            3.0);
+            1.0);
 
         if (along_track >= 0.0 || distance < goal_threshold)
         {

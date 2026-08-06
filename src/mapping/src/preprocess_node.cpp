@@ -11,21 +11,25 @@ PreprocessNode::PreprocessNode()
 : Node("preprocess_node"),
   pose_received_(false)
 {
+    tf_broadcaster_ =
+        std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+    lidar_offset_ << 0.0f, 0.0f, 0.49f;
     lidar_offset_ << 0.0f, 0.0f, 0.49f;
 
     point_sub_ =
         create_subscription<sensor_msgs::msg::PointCloud2>(
             "/points/points",
-            10,
+            rclcpp::SensorDataQoS(),
             std::bind(
                 &PreprocessNode::pointCloudCallback,
                 this,
                 std::placeholders::_1));
 
     global_cloud_pub_ =
-        create_publisher<sensor_msgs::msg::PointCloud2>(
-            "/mapping/global_cloud",
-            10);
+    create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/mapping/global_cloud",
+        rclcpp::SensorDataQoS());
 
     gz_node_.Subscribe(
         "/world/winding_room/dynamic_pose/info",
@@ -33,6 +37,26 @@ PreprocessNode::PreprocessNode()
         this);
 
     RCLCPP_INFO(get_logger(), "Preprocess node started.");
+}
+
+void PreprocessNode::publishTF()
+{
+    geometry_msgs::msg::TransformStamped tf;
+
+    tf.header.stamp = this->now();
+    tf.header.frame_id = "map";
+    tf.child_frame_id = "base_link";
+
+    tf.transform.translation.x = robot_position_.x();
+    tf.transform.translation.y = robot_position_.y();
+    tf.transform.translation.z = robot_position_.z();
+
+    tf.transform.rotation.x = robot_orientation_.x();
+    tf.transform.rotation.y = robot_orientation_.y();
+    tf.transform.rotation.z = robot_orientation_.z();
+    tf.transform.rotation.w = robot_orientation_.w();
+
+    tf_broadcaster_->sendTransform(tf);
 }
 
 void PreprocessNode::poseCallback(
@@ -57,7 +81,10 @@ void PreprocessNode::poseCallback(
                 pose.orientation().y(),
                 pose.orientation().z());
         robot_orientation_.normalize();
+
         pose_received_ = true;
+
+        publishTF();
 
         break;
     }

@@ -465,7 +465,7 @@ float ATCDT::computeGthr() const
         return std::numeric_limits<float>::infinity();
     }
 
-    std::sort(
+    std::sort( 
         ages.begin(),
         ages.end());
 

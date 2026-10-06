@@ -25,6 +25,10 @@ ControllerNode::ControllerNode()
         {0.0, -12},
         {0.0, -16},
         {16.0, -16},
+        {16.0, -21},
+        {-4.0, -21},
+        {-4.0, 0.0},
+        {0.0, 0.0},
     };
 
     gz_node_.Subscribe(
@@ -188,9 +192,9 @@ void ControllerNode::controlLoop()
     case State::DRIVE:
     {
         cmd.linear.x = std::clamp(
-            0.7 * distance,
+            0.4 * distance,
             0.0,
-            1.0);
+            3.0);
 
         if (along_track >= 0.0 || distance < goal_threshold)
         {

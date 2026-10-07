@@ -14,7 +14,6 @@ def generate_launch_description():
         cmd=[
             'gz',
             'sim',
-            'run',
             '/home/faza/topoMapWs/src/scenarios/worlds/winding_room.world'
         ],
         output='screen'
@@ -38,9 +37,26 @@ def generate_launch_description():
         output='screen'
     )
 
+    odom_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry'
+        ],
+        output='screen'
+    )
+
+    ground_truth_tf = Node(
+        package='bringup',
+        executable='ground_truth_tf',
+        output='screen'
+    )
+
     return LaunchDescription([
         gz_resource_path,
         gazebo,
         point_bridge,
         cmd_vel_bridge,
+        odom_bridge,
+        ground_truth_tf,
     ])

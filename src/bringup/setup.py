@@ -22,6 +22,10 @@ setup(
             os.path.join('share', package_name, 'launch'),
             glob('launch/*.launch.py'),
         ),
+        (
+            os.path.join('share', package_name, 'config'),
+            glob('config/*.yaml'),
+        ),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -36,6 +40,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'manual_waypoint_follower = bringup.manual_waypoint_follower:main',
+            'ground_truth_tf = bringup.ground_truth_tf:main',
         ],
     },
 )

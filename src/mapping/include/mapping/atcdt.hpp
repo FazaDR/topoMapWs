@@ -30,7 +30,11 @@ public:
 
         std::vector<Eigen::Vector3f> normals;
 
-        std::vector<int8_t> traversability;
+        std::vector<float> slope_angles;
+
+        std::vector<bool> traversable;
+
+        std::vector<bool> contour;
 
         //---------------------------------------
         // Edge set
@@ -87,8 +91,12 @@ public:
 public:
 
     ATCDT(
-        float vigilance = 0.5f,
-        int lambda_points = 4000);
+        float vigilance = 0.9f,
+        int lambda_points = 4000,
+        float max_slope = 30.0f * 3.14159265358979323846f / 180.0f,
+        float contour_gap = 3.14159265358979323846f,
+        const Eigen::Vector3f &gravity = Eigen::Vector3f(0.0f, -1.0f, 0.0f),
+        bool exclude_untraversable_from_contour = true);
 
     //---------------------------------------
     // Parameters
@@ -107,6 +115,11 @@ public:
     std::vector<int> winner_count;
 
     TopologicalMap map;
+
+    float max_slope;
+    float contour_gap;
+    Eigen::Vector3f gravity;
+    bool exclude_untraversable_from_contour;
 
     //---------------------------------------
     // Main algorithm
@@ -139,7 +152,11 @@ private:
     WinnerResult winnerSearch(
         const Eigen::Vector3f &point) const;
 
-    void updateExistingNode(
+    void updateWinner(
+        const Eigen::Vector3f &point,
+        int winner);
+
+    void updateNeighbors(
         const Eigen::Vector3f &point,
         int winner);
 
@@ -148,9 +165,16 @@ private:
         int s2);
 
     void removeOldEdges(
+        int s1,
         float gmax);
 
-    float computeGthr() const;
+    float computeGthr(
+        const std::vector<float> &ages) const;
 
-    float computeGmax() const;
+    float computeGmax(
+        int s1) const;
+
+    void estimateNormal(int node);
+    void estimateTraversability(int node);
+    void detectContour(int node);
 };

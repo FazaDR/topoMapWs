@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include <set>
+#include <Eigen/Eigenvalues>
 
 // ==========================================================
 // TopologicalMap
@@ -58,7 +59,9 @@ int ATCDT::TopologicalMap::addNode(
     normals.emplace_back(
         Eigen::Vector3f::Zero());
 
-    traversability.push_back(0);
+    slope_angles.push_back(0.0f);
+    traversable.push_back(false);
+    contour.push_back(false);
 
     int node_id = node_count;
     ++node_count;
@@ -86,8 +89,8 @@ void ATCDT::TopologicalMap::addEdge(
     int a,
     int b)
 {
-    graph[a][b] = 0;
-    graph[b][a] = 0;
+    graph[a][b] = 1;
+    graph[b][a] = 1;
 }
 
 void ATCDT::TopologicalMap::removeEdge(
@@ -175,10 +178,20 @@ int ATCDT::TopologicalMap::numEdges() const
 
 ATCDT::ATCDT(
     float vigilance,
-    int lambda_points)
+    int lambda_points,
+    float max_slope,
+    float contour_gap,
+    const Eigen::Vector3f &gravity,
+    bool exclude_untraversable_from_contour)
 : vigilance(vigilance),
-  lambda_points(lambda_points)
+  lambda_points(lambda_points),
+  max_slope(max_slope),
+  contour_gap(contour_gap),
+  gravity(gravity),
+  exclude_untraversable_from_contour(exclude_untraversable_from_contour)
 {
+    if (this->gravity.norm() > 1e-6f)
+        this->gravity.normalize();
 }
 
 // ==========================================================
@@ -232,7 +245,7 @@ int ATCDT::addNode(
     int node_id =
         map.addNode(point);
 
-    winner_count.push_back(0);
+    winner_count.push_back(1);
 
     return node_id;
 }
@@ -300,10 +313,10 @@ ATCDT::WinnerResult ATCDT::winnerSearch(
 }
 
 // ==========================================================
-// updateExistingNode()
+// updateWinner()
 // ==========================================================
 
-void ATCDT::updateExistingNode(
+void ATCDT::updateWinner(
     const Eigen::Vector3f &point,
     int winner)
 {
@@ -317,14 +330,16 @@ void ATCDT::updateExistingNode(
         lr *
         (point - map.positions[winner]);
 
-    for (int neighbor :
-         map.neighbors(winner))
-    {
-        winner_count[neighbor]++;
+}
 
-        lr =
-            1.0f /
-            (100.0f * winner_count[neighbor]);
+void ATCDT::updateNeighbors(
+    const Eigen::Vector3f &point,
+    int winner)
+{
+    for (int neighbor : map.neighbors(winner))
+    {
+        const float lr =
+            1.0f / (100.0f * winner_count[neighbor]);
 
         map.positions[neighbor] +=
             lr *
@@ -349,8 +364,8 @@ void ATCDT::updateEdge(
 
     if (map.hasEdge(s1, s2))
     {
-        map.graph[s1][s2] = 0;
-        map.graph[s2][s1] = 0;
+        map.graph[s1][s2] = 1;
+        map.graph[s2][s1] = 1;
     }
     else
     {
@@ -363,41 +378,23 @@ void ATCDT::updateEdge(
 // ==========================================================
 
 void ATCDT::removeOldEdges(
+    int s1,
     float gmax)
 {
     std::vector<std::pair<int,int>>
         remove_edges;
 
-    std::set<std::pair<int,int>>
-        visited;
-
-    for (const auto &[a, neighbors] :
-         map.graph)
+    for (const auto &[neighbor, age] : map.graph[s1])
     {
-        for (const auto &[b, age] :
-             neighbors)
+        if (age > gmax)
         {
-            if (visited.count({b,a}))
-                continue;
-
-            visited.insert({a,b});
-
-            if (age > gmax)
-            {
-                deleted_edge_ages.push_back(age);
-
-                remove_edges.emplace_back(
-                    a,
-                    b);
-            }
+            deleted_edge_ages.push_back(static_cast<float>(age));
+            remove_edges.emplace_back(s1, neighbor);
         }
     }
 
-    for (const auto &[a,b] :
-         remove_edges)
-    {
-        map.removeEdge(a,b);
-    }
+    for (const auto &[a, b] : remove_edges)
+        map.removeEdge(a, b);
 }
 
 // ==========================================================
@@ -410,6 +407,25 @@ void ATCDT::processFrame(
     auto sampled =
         samplePoints(point_cloud);
 
+    if (map.node_count == 0)
+    {
+        if (sampled.size() < 2)
+            return;
+
+        std::uniform_int_distribution<size_t> distribution(
+            0,
+            sampled.size() - 1);
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        const size_t first = distribution(generator);
+        size_t second = distribution(generator);
+        while (second == first)
+            second = distribution(generator);
+
+        addNode(sampled[first]);
+        addNode(sampled[second]);
+    }
+
     for (const auto &point :
          sampled)
     {
@@ -420,7 +436,7 @@ void ATCDT::processFrame(
         // Case (a)
         //
 
-        if (result.d1 > vigilance)
+        if (result.d1 >= vigilance)
         {
             addNode(point);
             continue;
@@ -430,48 +446,48 @@ void ATCDT::processFrame(
         // Case (b)
         //
 
-        updateExistingNode(
+        updateWinner(
             point,
             result.s1);
 
-        //
-        // Case (c)
-        //
+        if (result.d2 < vigilance)
+            updateNeighbors(point, result.s1);
 
-        if (result.d2 <= vigilance)
+        for (int neighbor : map.neighbors(result.s1))
         {
-            updateEdge(
-                result.s1,
-                result.s2);
+            map.graph[result.s1][neighbor]++;
+            map.graph[neighbor][result.s1]++;
         }
+
+        estimateNormal(result.s1);
+        estimateTraversability(result.s1);
+        detectContour(result.s1);
+
+        if (result.d2 < vigilance)
+            updateEdge(result.s1, result.s2);
+
+        removeOldEdges(result.s1, computeGmax(result.s1));
     }
-
-    float gmax =
-        computeGmax();
-
-    removeOldEdges(gmax);
 }
 
 // ==========================================================
 // computeGthr()
 // ==========================================================
 
-float ATCDT::computeGthr() const
+float ATCDT::computeGthr(
+    const std::vector<float> &ages) const
 {
-    auto ages = map.edgeAges();
-
-    if (ages.size() < 4)
+    if (ages.empty())
     {
         return std::numeric_limits<float>::infinity();
     }
 
-    std::sort( 
-        ages.begin(),
-        ages.end());
+    auto sorted = ages;
+    std::sort(sorted.begin(), sorted.end());
 
     auto percentile = [&](float p)
     {
-        float index = p * (ages.size() - 1);
+        float index = p * (sorted.size() - 1);
 
         size_t lower =
             static_cast<size_t>(std::floor(index));
@@ -481,14 +497,14 @@ float ATCDT::computeGthr() const
 
         if (lower == upper)
         {
-            return ages[lower];
+            return sorted[lower];
         }
 
         float weight =
             index - lower;
 
-        return ages[lower] * (1.0f - weight)
-             + ages[upper] * weight;
+        return sorted[lower] * (1.0f - weight)
+             + sorted[upper] * weight;
     };
 
     float q1 = percentile(0.25f);
@@ -503,13 +519,22 @@ float ATCDT::computeGthr() const
 // computeGmax()
 // ==========================================================
 
-float ATCDT::computeGmax() const
+float ATCDT::computeGmax(
+    int s1) const
 {
-    auto current =
-        map.edgeAges();
+    std::vector<float> current;
+    const auto graph_it = map.graph.find(s1);
+    if (graph_it != map.graph.end())
+    {
+        for (const auto &[neighbor, age] : graph_it->second)
+        {
+            (void)neighbor;
+            current.push_back(static_cast<float>(age));
+        }
+    }
 
     float gthr =
-        computeGthr();
+        computeGthr(current);
 
     if (deleted_edge_ages.empty())
     {
@@ -539,4 +564,88 @@ float ATCDT::computeGmax() const
         gthr * (1.0f - weight);
 
     return gmax;
+}
+
+void ATCDT::estimateNormal(int node)
+{
+    const auto node_neighbors = map.neighbors(node);
+    if (node_neighbors.size() < 3)
+        return;
+
+    const Eigen::Vector3f center = map.positions[node];
+    Eigen::Matrix3f covariance = Eigen::Matrix3f::Zero();
+
+    for (int neighbor : node_neighbors)
+    {
+        const Eigen::Vector3f diff = map.positions[neighbor] - center;
+        covariance += diff * diff.transpose();
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
+    if (solver.info() == Eigen::Success)
+        map.normals[node] = solver.eigenvectors().col(0);
+}
+
+void ATCDT::estimateTraversability(int node)
+{
+    const Eigen::Vector3f normal = map.normals[node];
+    if (normal.norm() < 1e-6f)
+        return;
+
+    float cosine = std::clamp(
+        std::abs(normal.normalized().dot(gravity)),
+        0.0f,
+        1.0f);
+    map.slope_angles[node] = std::acos(cosine);
+    map.traversable[node] = map.slope_angles[node] < max_slope;
+}
+
+void ATCDT::detectContour(int node)
+{
+    std::vector<int> node_neighbors = map.neighbors(node);
+    if (exclude_untraversable_from_contour)
+    {
+        node_neighbors.erase(
+            std::remove_if(
+                node_neighbors.begin(),
+                node_neighbors.end(),
+                [this](int neighbor)
+                {
+                    return map.normals[neighbor].norm() < 1e-6f
+                        || !map.traversable[neighbor];
+                }),
+            node_neighbors.end());
+    }
+
+    if (node_neighbors.size() < 2)
+    {
+        map.contour[node] = true;
+        return;
+    }
+
+    Eigen::Vector3f reference(1.0f, 0.0f, 0.0f);
+    if (std::abs(reference.dot(gravity)) > 0.9f)
+        reference = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+
+    Eigen::Vector3f u = gravity.cross(reference).normalized();
+    Eigen::Vector3f v = gravity.cross(u);
+    std::vector<float> angles;
+    angles.reserve(node_neighbors.size());
+
+    for (int neighbor : node_neighbors)
+    {
+        Eigen::Vector3f projected =
+            map.positions[neighbor] - map.positions[node];
+        projected -= projected.dot(gravity) * gravity;
+        angles.push_back(std::atan2(projected.dot(v), projected.dot(u)));
+    }
+
+    std::sort(angles.begin(), angles.end());
+    float largest_gap =
+        (angles.front() + 2.0f * static_cast<float>(M_PI))
+        - angles.back();
+    for (std::size_t i = 1; i < angles.size(); ++i)
+        largest_gap = std::max(largest_gap, angles[i] - angles[i - 1]);
+
+    map.contour[node] = largest_gap > contour_gap;
 }

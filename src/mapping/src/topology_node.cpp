@@ -4,7 +4,7 @@
 
 TopologyNode::TopologyNode()
 : Node("topology_node"),
-  atcdt_(1.0f, 5000)
+  atcdt_(0.9f, 4000)
 {
     point_sub_ =
         create_subscription<sensor_msgs::msg::PointCloud2>(

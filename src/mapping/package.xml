@@ -3,7 +3,7 @@
 <package format="3">
   <name>mapping</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Topological mapping pipelines, including ATC-DT and MLATC.</description>
   <maintainer email="rafsanjanidipa@gmail.com">faza</maintainer>
   <license>TODO: License declaration</license>
 
@@ -22,4 +22,7 @@
 
   <depend>gz-transport13</depend>
   <depend>gz-msgs10</depend>
+  <depend>visualization_msgs</depend>
+  <depend>eigen3_cmake_module</depend>
+  <depend>Eigen3</depend>
 </package>

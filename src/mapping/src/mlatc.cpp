@@ -1,4 +1,4 @@
-#include "mapping_mlatc/mlatc.hpp"
+#include "mapping/mlatc.hpp"
 
 #include <Eigen/Eigenvalues>
 #include <algorithm>
@@ -17,6 +17,7 @@ ATCDT::ATCDT(float v, int lambda_points, bool attributes)
 
 int ATCDT::addNode(const Eigen::Vector3f & point)
 {
+  if (!point.allFinite()) return -1;
   const int id = next_id_++;
   nodes_.push_back({point});
   return id;
@@ -27,6 +28,18 @@ std::vector<int> ATCDT::nodeIds() const
   std::vector<int> ids;
   for (int i = 0; i < nodeCount(); ++i) ids.push_back(i);
   return ids;
+}
+
+std::vector<std::pair<int, int>> ATCDT::edges() const
+{
+  std::vector<std::pair<int, int>> result;
+  for (const auto & [first, neighbors] : graph_) {
+    for (const auto & [second, age] : neighbors) {
+      (void)age;
+      if (first < second) result.emplace_back(first, second);
+    }
+  }
+  return result;
 }
 
 const Node & ATCDT::node(int id) const { return nodes_.at(static_cast<size_t>(id)); }
@@ -145,6 +158,17 @@ std::unordered_set<int> Hierarchy::children(int layer, int parent) const
   return p == l->second.end() ? std::unordered_set<int>{} : p->second;
 }
 
+std::vector<std::tuple<int, int, int>> Hierarchy::edges() const
+{
+  std::vector<std::tuple<int, int, int>> result;
+  for (const auto & [layer, parents] : children_) {
+    for (const auto & [parent, children] : parents) {
+      for (const int child : children) result.emplace_back(layer, parent, child);
+    }
+  }
+  return result;
+}
+
 MLATC::MLATC(float base, float alpha, int lambda_points)
 : base_vigilance_(base), alpha_(alpha), lambda_points_(lambda_points) { addLayer(); }
 
@@ -202,6 +226,7 @@ void MLATC::expandTopLayer()
 
 void MLATC::processPoint(const Eigen::Vector3f & point)
 {
+  if (!point.allFinite()) return;
   auto candidates = hierarchicalNns(point);
   int child = -1;
   for (size_t layer = 0; layer < layers_.size(); ++layer) {
@@ -221,7 +246,9 @@ void MLATC::processFrame(const std::vector<Eigen::Vector3f> & points)
   const size_t stride = points.size() > static_cast<size_t>(lambda_points_)
     ? (points.size() + static_cast<size_t>(lambda_points_) - 1) /
       static_cast<size_t>(lambda_points_) : 1;
-  for (size_t i = 0; i < points.size(); i += stride) processPoint(points[i]);
+  for (size_t i = 0; i < points.size(); i += stride) {
+    if (points[i].allFinite()) processPoint(points[i]);
+  }
 }
 
 }  // namespace mlatc

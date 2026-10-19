@@ -1,11 +1,22 @@
 #include "mapping/topology_node.hpp"
 
+#include <chrono>
+#include <stdexcept>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 TopologyNode::TopologyNode()
 : Node("topology_node"),
-  atcdt_(0.9f, 4000)
+  atcdt_(0.9f, 4000),
+  metrics_file_(declare_parameter("metrics_csv", "atcdt_metrics.csv"))
 {
+    if (!metrics_file_.is_open())
+    {
+        throw std::runtime_error(
+            "ATC-DT could not open metrics CSV: " +
+            get_parameter("metrics_csv").as_string());
+    }
+    metrics_file_ << "frame,stamp_sec,stamp_nanosec,processing_ms,node_count\n";
+
     point_sub_ =
         create_subscription<sensor_msgs::msg::PointCloud2>(
             "/mapping/global_cloud",
@@ -25,11 +36,13 @@ TopologyNode::TopologyNode()
 void TopologyNode::pointCloudCallback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-    auto points =
-        convertPointCloud(*msg);
+    ++received_frames_;
+    const auto start = std::chrono::steady_clock::now();
+    auto points = convertPointCloud(*msg);
 
     atcdt_.processFrame(points);
     publishTopology();
+    ++processed_frames_;
 
     RCLCPP_INFO_THROTTLE(
         get_logger(),
@@ -38,12 +51,29 @@ void TopologyNode::pointCloudCallback(
         "Nodes: %d  Edges: %d",
         atcdt_.map.node_count,
         atcdt_.map.numEdges());
+    RCLCPP_INFO_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        5000,
+        "ATC-DT frames: received=%lu processed=%lu",
+        received_frames_,
+        processed_frames_);
+
+    const auto elapsed = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
+    metrics_file_ << processed_frames_ << ','
+                  << msg->header.stamp.sec << ','
+                  << msg->header.stamp.nanosec << ','
+                  << elapsed << ','
+                  << atcdt_.map.node_count << '\n';
+    metrics_file_.flush();
 }
 
 std::vector<Eigen::Vector3f> TopologyNode::convertPointCloud(
     const sensor_msgs::msg::PointCloud2 &cloud) const
 {
     std::vector<Eigen::Vector3f> points;
+    size_t invalid_points = 0;
 
     sensor_msgs::PointCloud2ConstIterator<float>
         iter_x(cloud, "x");
@@ -57,10 +87,25 @@ std::vector<Eigen::Vector3f> TopologyNode::convertPointCloud(
          ++iter_y,
          ++iter_z)
     {
-        points.emplace_back(
-            *iter_x,
-            *iter_y,
-            *iter_z);
+        const Eigen::Vector3f point(*iter_x, *iter_y, *iter_z);
+        if (point.allFinite())
+        {
+            points.push_back(point);
+        }
+        else
+        {
+            ++invalid_points;
+        }
+    }
+
+    if (invalid_points > 0)
+    {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(),
+            *get_clock(),
+            5000,
+            "ATC-DT dropped %zu non-finite input points",
+            invalid_points);
     }
 
     return points;
@@ -99,6 +144,10 @@ void TopologyNode::publishTopology()
 
     for (const auto &p : atcdt_.map.positions)
     {
+        if (!p.allFinite())
+        {
+            continue;
+        }
         geometry_msgs::msg::Point point;
 
         point.x = p.x();
@@ -144,6 +193,10 @@ void TopologyNode::publishTopology()
 
         const auto &v2 =
             atcdt_.map.positions[b];
+        if (!v1.allFinite() || !v2.allFinite())
+        {
+            continue;
+        }
 
         p1.x = v1.x();
         p1.y = v1.y();

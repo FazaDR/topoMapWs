@@ -1,4 +1,4 @@
-#include "mapping_mlatc/mlatc_node.hpp"
+#include "mapping/mlatc_node.hpp"
 
 int main(int argc, char ** argv)
 {

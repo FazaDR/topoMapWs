@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
 #include <vector>
 
 namespace mlatc
@@ -54,6 +55,7 @@ class Hierarchy
 public:
   void add(int upper_layer, int parent, int child);
   std::unordered_set<int> children(int upper_layer, int parent) const;
+  std::vector<std::tuple<int, int, int>> edges() const;
 
 private:
   std::unordered_map<int, std::unordered_map<int, std::unordered_set<int>>> children_;
@@ -65,6 +67,10 @@ public:
   MLATC(float base_vigilance = 0.5F, float alpha = 4.0F, int lambda_points = 4000);
   void processFrame(const std::vector<Eigen::Vector3f> & points);
   const std::vector<ATCDT> & layers() const { return layers_; }
+  std::vector<std::tuple<int, int, int>> hierarchyEdges() const
+  {
+    return hierarchy_.edges();
+  }
   float vigilance(size_t layer) const;
 
 private:

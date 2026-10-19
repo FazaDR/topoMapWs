@@ -91,7 +91,7 @@ public:
 public:
 
     ATCDT(
-        float vigilance = 0.9f,
+        float vigilance = 0.5f,
         int lambda_points = 4000,
         float max_slope = 30.0f * 3.14159265358979323846f / 180.0f,
         float contour_gap = 3.14159265358979323846f,

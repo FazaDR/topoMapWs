@@ -19,6 +19,12 @@ find_package(visualization_msgs REQUIRED)
 
 include_directories(include)
 
+add_library(mlatc
+  src/mlatc.cpp
+)
+target_include_directories(mlatc PUBLIC include)
+target_link_libraries(mlatc Eigen3::Eigen)
+
 add_executable(preprocess_node
   src/preprocess_main.cpp
   src/preprocess_node.cpp
@@ -30,6 +36,12 @@ add_executable(topology_node
     src/atcdt.cpp
 )
 
+add_executable(mlatc_node
+  src/mlatc_node.cpp
+  src/mlatc_main.cpp
+)
+target_include_directories(mlatc_node PRIVATE include)
+
 ament_target_dependencies(preprocess_node
     rclcpp
     sensor_msgs
@@ -39,6 +51,12 @@ ament_target_dependencies(preprocess_node
 )
 
 ament_target_dependencies(topology_node
+    rclcpp
+    sensor_msgs
+    visualization_msgs
+)
+
+ament_target_dependencies(mlatc_node
     rclcpp
     sensor_msgs
     visualization_msgs
@@ -58,10 +76,19 @@ target_link_libraries(topology_node
     Eigen3::Eigen
 )
 
+target_link_libraries(mlatc_node
+    mlatc
+    Eigen3::Eigen
+)
+
 install(TARGETS
+    mlatc
     preprocess_node
     topology_node
-    DESTINATION lib/${PROJECT_NAME}
+    mlatc_node
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY include/

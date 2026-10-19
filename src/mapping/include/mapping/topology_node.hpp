@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <fstream>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -32,6 +33,9 @@ private:
     //---------------------------------------
 
     ATCDT atcdt_;
+    uint64_t received_frames_{0};
+    uint64_t processed_frames_{0};
+    std::ofstream metrics_file_;
 
     //---------------------------------------
     // Callback

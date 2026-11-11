@@ -58,6 +58,8 @@ public:
         int addNode(
             const Eigen::Vector3f &position);
 
+        void removeNode(int node_id);
+
         //---------------------------------------
         // Edge operations
         //---------------------------------------
@@ -127,6 +129,8 @@ public:
 
     void processFrame(
         const std::vector<Eigen::Vector3f> &point_cloud);
+    
+    void removeNode(int id);
 
 private:
 

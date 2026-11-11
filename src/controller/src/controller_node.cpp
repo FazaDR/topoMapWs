@@ -31,8 +31,10 @@ ControllerNode::ControllerNode()
         {0.0, 0.0},
     };
 
+    const auto world = declare_parameter<std::string>("world", "winding_room");
+
     gz_node_.Subscribe(
-        "/world/winding_room/dynamic_pose/info",
+        "/world/" + world + "/dynamic_pose/info",
         &ControllerNode::poseCallback,
         this);
 

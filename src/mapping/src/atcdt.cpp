@@ -69,6 +69,63 @@ int ATCDT::TopologicalMap::addNode(
     return node_id;
 }
 
+void ATCDT::TopologicalMap::removeNode(int node_id)
+{
+    if (node_id < 0 || node_id >= node_count)
+        return;
+
+    int last_slot = node_count - 1;
+
+    for (auto &[a, neighbors] : graph)
+    {
+        neighbors.erase(node_id);
+    }
+    graph.erase(node_id);
+
+    if (node_id != last_slot)
+    {
+        positions[node_id] = positions[last_slot];
+        normals[node_id] = normals[last_slot];
+        slope_angles[node_id] = slope_angles[last_slot];
+        traversable[node_id] = traversable[last_slot];
+        contour[node_id] = contour[last_slot];
+
+        auto last_it = graph.find(last_slot);
+        if (last_it != graph.end())
+        {
+            auto last_neighbors = std::move(last_it->second);
+            graph.erase(last_slot);
+
+            for (auto &[neighbor, age] : last_neighbors)
+            {
+                auto neighbor_it = graph.find(neighbor);
+                if (neighbor_it != graph.end())
+                {
+                    neighbor_it->second.erase(last_slot);
+                    neighbor_it->second[node_id] = age;
+                }
+            }
+            graph[node_id] = std::move(last_neighbors);
+        }
+    }
+
+    positions.pop_back();
+    normals.pop_back();
+    slope_angles.pop_back();
+    traversable.pop_back();
+    contour.pop_back();
+    --node_count;
+}
+
+void ATCDT::removeNode(int id)
+{
+    if (id < 0 || id >= map.node_count) return;
+    const int last = map.node_count - 1;
+    if (id != last) winner_count[id] = winner_count[last];
+    winner_count.pop_back();
+    map.removeNode(id);   // your existing swap-with-last removal
+}
+
 // ==========================================================
 // Edge Operations
 // ==========================================================

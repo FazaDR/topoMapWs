@@ -1,26 +1,30 @@
 #include "mapping/topology_node.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <stdexcept>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 TopologyNode::TopologyNode()
 : Node("topology_node"),
   atcdt_(0.9f, 4000),
-  metrics_file_(declare_parameter("metrics_csv", "atcdt_metrics.csv"))
+sample_period_ms_(declare_parameter("sample_period_ms", 100.0)),
+metrics_file_(declare_parameter("metrics_csv", "atcdt_metrics.csv"))
 {
+  if (sample_period_ms_ <= 0.0)
+      throw std::invalid_argument("sample_period_ms must be positive");
     if (!metrics_file_.is_open())
     {
         throw std::runtime_error(
             "ATC-DT could not open metrics CSV: " +
             get_parameter("metrics_csv").as_string());
     }
-    metrics_file_ << "frame,stamp_sec,stamp_nanosec,processing_ms,node_count\n";
+    metrics_file_ << "frame,source_frame_id,stamp_sec,stamp_nanosec,processing_ms,sample_period_ms,skipped_frames,processed_frames,total_seen_frames,processed_ratio,node_count\n";
 
     point_sub_ =
-        create_subscription<sensor_msgs::msg::PointCloud2>(
-            "/mapping/global_cloud",
-            rclcpp::SensorDataQoS(),
+        create_subscription<preprocess::msg::ProcessedScan>(
+            "/mapping/processed_scan",
+            rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(),
             std::bind(
                 &TopologyNode::pointCloudCallback,
                 this,
@@ -34,11 +38,27 @@ TopologyNode::TopologyNode()
 }
 
 void TopologyNode::pointCloudCallback(
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    const preprocess::msg::ProcessedScan::SharedPtr msg)
 {
     ++received_frames_;
+    RCLCPP_INFO_THROTTLE(
+        get_logger(), *get_clock(), 1000,
+        "ATC-DT received source_frame_id=%lu with %u points",
+        msg->source_frame_id, msg->cloud.width * msg->cloud.height);
+    const int64_t stamp_ns =
+        static_cast<int64_t>(msg->header.stamp.sec) * 1000000000LL +
+        static_cast<int64_t>(msg->header.stamp.nanosec);
+    if (previous_stamp_ns_ >= 0) {
+        const double delta_ms =
+            static_cast<double>(stamp_ns - previous_stamp_ns_) / 1e6;
+        const auto expected_frames = static_cast<int64_t>(
+            std::llround(delta_ms / sample_period_ms_));
+        if (expected_frames > 1)
+            skipped_frames_ += static_cast<uint64_t>(expected_frames - 1);
+    }
+    previous_stamp_ns_ = stamp_ns;
     const auto start = std::chrono::steady_clock::now();
-    auto points = convertPointCloud(*msg);
+    auto points = convertPointCloud(msg->cloud);
 
     atcdt_.processFrame(points);
     publishTopology();
@@ -61,10 +81,17 @@ void TopologyNode::pointCloudCallback(
 
     const auto elapsed = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
+    const auto total_seen_frames = processed_frames_ + skipped_frames_;
     metrics_file_ << processed_frames_ << ','
+                  << msg->source_frame_id << ','
                   << msg->header.stamp.sec << ','
                   << msg->header.stamp.nanosec << ','
                   << elapsed << ','
+                  << sample_period_ms_ << ','
+                  << skipped_frames_ << ','
+                  << processed_frames_ << ','
+                  << total_seen_frames << ','
+                  << (total_seen_frames == 0 ? 0.0 : static_cast<double>(processed_frames_) / static_cast<double>(total_seen_frames)) << ','
                   << atcdt_.map.node_count << '\n';
     metrics_file_.flush();
 }

@@ -7,28 +7,20 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(preprocess REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(gz-transport13 REQUIRED)
-find_package(gz-msgs10 REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common io)
-find_package(pcl_conversions REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common kdtree)
 
-include_directories(include)
+include_directories(include ${PCL_INCLUDE_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 add_library(mlatc
   src/mlatc.cpp
 )
 target_include_directories(mlatc PUBLIC include)
 target_link_libraries(mlatc Eigen3::Eigen)
-
-add_executable(preprocess_node
-  src/preprocess_main.cpp
-  src/preprocess_node.cpp
-)
 
 add_executable(topology_node
     src/topology_main.cpp
@@ -40,52 +32,83 @@ add_executable(mlatc_node
   src/mlatc_node.cpp
   src/mlatc_main.cpp
 )
-target_include_directories(mlatc_node PRIVATE include)
 
-ament_target_dependencies(preprocess_node
-    rclcpp
-    sensor_msgs
-    pcl_conversions
-    tf2_ros
-    geometry_msgs
+add_executable(atcdt_free_node
+  src/atcdt_free_node.cpp
+  src/atcdt_free_main.cpp
+  src/atcdt.cpp
 )
+
+add_executable(mlatc_free_node
+  src/mlatc_free_node.cpp
+  src/mlatc_free_main.cpp
+)
+
+target_include_directories(mlatc_node PRIVATE include)
 
 ament_target_dependencies(topology_node
     rclcpp
+    preprocess
     sensor_msgs
     visualization_msgs
 )
 
 ament_target_dependencies(mlatc_node
     rclcpp
+    preprocess
     sensor_msgs
     visualization_msgs
 )
 
-target_link_libraries(preprocess_node
-  gz-transport13::core
-  gz-msgs10::core
-  ${PCL_LIBRARIES}
+ament_target_dependencies(atcdt_free_node
+    rclcpp
+    preprocess
+    sensor_msgs
+    visualization_msgs
 )
 
-target_link_libraries(preprocess_node
-    Eigen3::Eigen
+ament_target_dependencies(mlatc_free_node
+    rclcpp
+    preprocess
+    sensor_msgs
+    geometry_msgs
+    visualization_msgs
 )
 
 target_link_libraries(topology_node
     Eigen3::Eigen
+    preprocess::preprocess__rosidl_typesupport_cpp
+    preprocess::preprocess__rosidl_generator_c
 )
 
 target_link_libraries(mlatc_node
     mlatc
     Eigen3::Eigen
+    preprocess::preprocess__rosidl_typesupport_cpp
+    preprocess::preprocess__rosidl_generator_c
+)
+
+target_link_libraries(atcdt_free_node
+    Eigen3::Eigen
+    ${PCL_LIBRARIES}
+    preprocess::preprocess__rosidl_typesupport_cpp
+    preprocess::preprocess__rosidl_generator_c
+)
+
+target_link_libraries(mlatc_free_node
+    mlatc
+    Eigen3::Eigen
+    ${PCL_LIBRARIES}
+    preprocess::preprocess__rosidl_typesupport_cpp
+    preprocess::preprocess__rosidl_generator_c
 )
 
 install(TARGETS
     mlatc
-    preprocess_node
     topology_node
     mlatc_node
+    atcdt_free_node
+    mlatc_free_node
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION lib/${PROJECT_NAME}

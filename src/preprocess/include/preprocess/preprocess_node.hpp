@@ -13,6 +13,11 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <mutex>
+#include <string>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include "preprocess/msg/processed_scan.hpp"
+
 class PreprocessNode : public rclcpp::Node
 {
 public:
@@ -26,11 +31,9 @@ private:
     // ROS
     //---------------------------------------
 
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr
-        point_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr point_sub_;
 
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr
-        global_cloud_pub_;
+    rclcpp::Publisher<preprocess::msg::ProcessedScan>::SharedPtr processed_scan_pub_;
 
     //---------------------------------------
     // Gazebo
@@ -44,6 +47,9 @@ private:
 
     Eigen::Vector3f lidar_offset_;
 
+    std::string robot_name_;
+    std::mutex pose_mutex_;
+
 
     //---------------------------------------
     // Robot pose
@@ -55,6 +61,7 @@ private:
     Eigen::Quaternionf robot_orientation_;
 
     bool pose_received_;
+    uint64_t source_frame_id_{0};
 
     //---------------------------------------
     // Callbacks
@@ -71,8 +78,10 @@ private:
     //---------------------------------------
 
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-    void publishTF();
+    void publishTF(const Eigen::Vector3f &pos, const Eigen::Quaternionf &q);
 
     sensor_msgs::msg::PointCloud2 transformCloud(
-        const sensor_msgs::msg::PointCloud2 &cloud);
+        const sensor_msgs::msg::PointCloud2 &cloud,
+        const Eigen::Vector3f &pos,
+        const Eigen::Quaternionf &q);
 };

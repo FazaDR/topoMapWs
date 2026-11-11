@@ -18,9 +18,36 @@ ATCDT::ATCDT(float v, int lambda_points, bool attributes)
 int ATCDT::addNode(const Eigen::Vector3f & point)
 {
   if (!point.allFinite()) return -1;
-  const int id = next_id_++;
+  const int id = static_cast<int>(nodes_.size());
   nodes_.push_back({point});
   return id;
+}
+
+void ATCDT::removeNode(int id)
+{
+  if (id < 0 || static_cast<size_t>(id) >= nodes_.size()) return;
+  const int last = static_cast<int>(nodes_.size()) - 1;
+  for (auto &[node, neighbors] : graph_)
+    neighbors.erase(id);
+  graph_.erase(id);
+
+  if (id != last)
+  {
+    nodes_[static_cast<size_t>(id)] = std::move(nodes_[static_cast<size_t>(last)]);
+    auto last_it = graph_.find(last);
+    if (last_it != graph_.end())
+    {
+      auto last_neighbors = std::move(last_it->second);
+      graph_.erase(last_it);
+      for (auto &[neighbor, age] : last_neighbors)
+      {
+        graph_[neighbor].erase(last);
+        graph_[neighbor][id] = age;
+      }
+      graph_[id] = std::move(last_neighbors);
+    }
+  }
+  nodes_.pop_back();
 }
 
 std::vector<int> ATCDT::nodeIds() const
@@ -134,10 +161,11 @@ void ATCDT::estimateAttributes(int id)
   }
 }
 
-int ATCDT::updateByWinners(const Eigen::Vector3f & point, const std::vector<int> & candidates)
+int ATCDT::updateByWinners(const Eigen::Vector3f & point, const std::vector<int> & candidates, int * winner)
 {
   float d1, d2;
   const auto result = winners(point, &candidates, d1, d2);
+  if (winner) *winner = result.first;
   if (result.first < 0 || d1 >= vigilance) return addNode(point);
   updateNode(point, result.first);
   if (result.second >= 0 && d2 < vigilance) updateEdge(result.first, result.second);
@@ -149,6 +177,66 @@ int ATCDT::updateByWinners(const Eigen::Vector3f & point, const std::vector<int>
 void ATCDT::process(const Eigen::Vector3f & point) { updateByWinners(point, {}); }
 
 void Hierarchy::add(int layer, int parent, int child) { children_[layer][parent].insert(child); }
+
+void Hierarchy::removeNode(int layer, int node)
+{
+  auto & relations = children_[layer];
+  relations.erase(node);
+  auto child_relations = children_.find(layer + 1);
+  if (child_relations != children_.end())
+  {
+    for (auto it = child_relations->second.begin(); it != child_relations->second.end();)
+    {
+      it->second.erase(node);
+      if (it->second.empty())
+        it = child_relations->second.erase(it);
+      else
+        ++it;
+    }
+  }
+}
+
+void Hierarchy::remapNode(int layer, int from, int to)
+{
+  if (from == to)
+    return;
+
+  auto parent_relations = children_.find(layer);
+  if (parent_relations != children_.end())
+  {
+    auto parent = parent_relations->second.find(from);
+    if (parent != parent_relations->second.end())
+    {
+      auto children = std::move(parent->second);
+      parent_relations->second.erase(parent);
+      parent_relations->second[to].insert(children.begin(), children.end());
+    }
+  }
+
+  auto child_relations = children_.find(layer + 1);
+  if (child_relations != children_.end())
+  {
+    for (auto &[parent, children] : child_relations->second)
+    {
+      if (children.erase(from) > 0)
+        children.insert(to);
+    }
+  }
+}
+
+int Hierarchy::parent(int upper_layer, int child) const
+{
+  const auto layer = children_.find(upper_layer);
+  if (layer == children_.end())
+    return -1;
+
+  for (const auto &[candidate, children] : layer->second)
+  {
+    if (children.count(child) != 0)
+      return candidate;
+  }
+  return -1;
+}
 
 std::unordered_set<int> Hierarchy::children(int layer, int parent) const
 {
@@ -171,6 +259,35 @@ std::vector<std::tuple<int, int, int>> Hierarchy::edges() const
 
 MLATC::MLATC(float base, float alpha, int lambda_points)
 : base_vigilance_(base), alpha_(alpha), lambda_points_(lambda_points) { addLayer(); }
+
+void MLATC::removeLeaf(int node_id)
+{
+  if (layers_.empty() || node_id < 0 || node_id >= layers_[0].nodeCount())
+    return;
+
+  int child = node_id;
+  for (size_t layer_index = 0; layer_index < layers_.size(); ++layer_index)
+  {
+    const int upper_layer = static_cast<int>(layer_index + 1);
+    const int parent = upper_layer < static_cast<int>(layers_.size())
+      ? hierarchy_.parent(upper_layer, child) : -1;
+
+    hierarchy_.removeNode(static_cast<int>(layer_index), child);
+    const int last = layers_[layer_index].nodeCount() - 1;
+    if (last != child)
+      hierarchy_.remapNode(static_cast<int>(layer_index), last, child);
+    layers_[layer_index].removeNode(child);
+
+    if (parent < 0 ||
+        layer_index + 1 >= layers_.size() ||
+        !hierarchy_.children(upper_layer, parent).empty() ||
+        (layer_index + 1 == layers_.size() - 1 &&
+         layers_[layer_index + 1].nodeCount() <= 1))
+      break;
+
+    child = parent;
+  }
+}
 
 float MLATC::vigilance(size_t layer) const
 {
@@ -230,8 +347,9 @@ void MLATC::processPoint(const Eigen::Vector3f & point)
   auto candidates = hierarchicalNns(point);
   int child = -1;
   for (size_t layer = 0; layer < layers_.size(); ++layer) {
-    const int id = layers_[layer].updateByWinners(point, candidates[layer]);
-    const int winner = id >= 0 ? id : candidates[layer].empty() ? -1 : candidates[layer].front();
+    int s1 = -1;
+    const int id = layers_[layer].updateByWinners(point, candidates[layer], &s1);
+    const int winner = id >= 0 ? id : s1;
     if (winner < 0) break;
     if (child >= 0) hierarchy_.add(static_cast<int>(layer), winner, child);
     if (id < 0) break;

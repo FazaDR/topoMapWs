@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="idealized_lidar" canonical_link="lidar_link">
+    <link name="lidar_link">
+      <gravity>false</gravity>
+      <self_collide>false</self_collide>
+      <kinematic>true</kinematic>
+
+      <visual name="body_visual">
+        <geometry>
+          <sphere>
+            <radius>0.12</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>1 0.15 0.05 1</ambient>
+          <diffuse>1 0.25 0.05 1</diffuse>
+          <emissive>0.15 0.02 0 1</emissive>
+        </material>
+      </visual>
+
+      <sensor name="lidar" type="gpu_lidar">
+        <update_rate>10</update_rate>
+        <topic>points</topic>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>256</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>6.283185307179586</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>64</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.7853981633974483</min_angle>
+              <max_angle>0.7853981633974483</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>20.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </ray>
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+      </sensor>
+    </link>
+  </model>
+</sdf>

@@ -10,28 +10,48 @@ MlatcNode::MlatcNode()
           declare_parameter("lambda_points", 4000)),
   layer_z_offset_(declare_parameter("layer_z_offset", 4.0)),
   show_parent_child_(declare_parameter("show_parent_child", false)),
+  sample_period_ms_(declare_parameter("sample_period_ms", 100.0)),
   metrics_file_(declare_parameter("metrics_csv", "mlatc_metrics.csv"))
 {
+  if (sample_period_ms_ <= 0.0)
+    throw std::invalid_argument("sample_period_ms must be positive");
+
   if (!metrics_file_.is_open()) {
     throw std::runtime_error(
       "MLATC could not open metrics CSV: " +
       get_parameter("metrics_csv").as_string());
   }
-  metrics_file_ << "frame,stamp_sec,stamp_nanosec,processing_ms,layer1_node_count\n";
+  metrics_file_ << "frame,source_frame_id,stamp_sec,stamp_nanosec,processing_ms,sample_period_ms,skipped_frames,processed_frames,total_seen_frames,processed_ratio,layer1_node_count\n";
 
-  subscription_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/mapping/global_cloud", rclcpp::SensorDataQoS(),
+  subscription_ = create_subscription<preprocess::msg::ProcessedScan>(
+    "/mapping/processed_scan", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(),
     std::bind(&MlatcNode::callback, this, std::placeholders::_1));
   publisher_ = create_publisher<visualization_msgs::msg::MarkerArray>("/mlatc/topology", 1);
 }
 
-void MlatcNode::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void MlatcNode::callback(const preprocess::msg::ProcessedScan::SharedPtr msg)
 {
   ++received_frames_;
+  RCLCPP_INFO_THROTTLE(
+    get_logger(), *get_clock(), 1000,
+    "MLATC received source_frame_id=%lu with %u points",
+    msg->source_frame_id, msg->cloud.width * msg->cloud.height);
+  const int64_t stamp_ns =
+    static_cast<int64_t>(msg->header.stamp.sec) * 1000000000LL +
+    static_cast<int64_t>(msg->header.stamp.nanosec);
+  if (previous_stamp_ns_ >= 0) {
+    const double delta_ms =
+      static_cast<double>(stamp_ns - previous_stamp_ns_) / 1e6;
+    const auto expected_frames = static_cast<int64_t>(
+      std::llround(delta_ms / sample_period_ms_));
+    if (expected_frames > 1)
+      skipped_frames_ += static_cast<uint64_t>(expected_frames - 1);
+  }
+  previous_stamp_ns_ = stamp_ns;
   const auto start = std::chrono::steady_clock::now();
   std::vector<Eigen::Vector3f> points;
   size_t invalid_points = 0;
-  sensor_msgs::PointCloud2ConstIterator<float> x(*msg, "x"), y(*msg, "y"), z(*msg, "z");
+  sensor_msgs::PointCloud2ConstIterator<float> x(msg->cloud, "x"), y(msg->cloud, "y"), z(msg->cloud, "z");
   for (; x != x.end(); ++x, ++y, ++z) {
     const Eigen::Vector3f point(*x, *y, *z);
     if (point.allFinite()) {
@@ -57,10 +77,17 @@ void MlatcNode::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 
   const auto elapsed = std::chrono::duration<double, std::milli>(
     std::chrono::steady_clock::now() - start).count();
+  const auto total_seen_frames = processed_frames_ + skipped_frames_;
   metrics_file_ << processed_frames_ << ','
+                << msg->source_frame_id << ','
                 << msg->header.stamp.sec << ','
                 << msg->header.stamp.nanosec << ','
                 << elapsed << ','
+                << sample_period_ms_ << ','
+                << skipped_frames_ << ','
+                << processed_frames_ << ','
+                << total_seen_frames << ','
+                << (total_seen_frames == 0 ? 0.0 : static_cast<double>(processed_frames_) / static_cast<double>(total_seen_frames)) << ','
                 << mapper_.layers().front().nodeCount() << '\n';
   metrics_file_.flush();
 }

@@ -29,7 +29,8 @@ public:
   std::vector<std::pair<int, int>> edges() const;
   void process(const Eigen::Vector3f & point);
   int addNode(const Eigen::Vector3f & point);
-  int updateByWinners(const Eigen::Vector3f & point, const std::vector<int> & candidates);
+  void removeNode(int id);
+  int updateByWinners(const Eigen::Vector3f & point, const std::vector<int> & candidates, int * winner = nullptr);
   int nodeCount() const { return static_cast<int>(nodes_.size()); }
   float vigilance;
 
@@ -40,7 +41,6 @@ private:
   int deleted_count_ = 0;
   float deleted_mean_ = 0.0F;
   bool attributes_;
-  int next_id_ = 0;
   std::pair<int, int> winners(const Eigen::Vector3f &, const std::vector<int> * candidates,
                               float & d1, float & d2) const;
   void updateNode(const Eigen::Vector3f &, int);
@@ -54,6 +54,9 @@ class Hierarchy
 {
 public:
   void add(int upper_layer, int parent, int child);
+  void removeNode(int layer, int node);
+  void remapNode(int layer, int from, int to);
+  int parent(int upper_layer, int child) const;
   std::unordered_set<int> children(int upper_layer, int parent) const;
   std::vector<std::tuple<int, int, int>> edges() const;
 
@@ -67,6 +70,8 @@ public:
   MLATC(float base_vigilance = 0.5F, float alpha = 4.0F, int lambda_points = 4000);
   void processFrame(const std::vector<Eigen::Vector3f> & points);
   const std::vector<ATCDT> & layers() const { return layers_; }
+  std::vector<ATCDT> & layers() { return layers_; }
+  void removeLeaf(int node_id);
   std::vector<std::tuple<int, int, int>> hierarchyEdges() const
   {
     return hierarchy_.edges();

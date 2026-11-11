@@ -1,0 +1,4 @@
+std_msgs/Header header
+uint64 source_frame_id
+sensor_msgs/PointCloud2 cloud
+geometry_msgs/PoseStamped robot_pose

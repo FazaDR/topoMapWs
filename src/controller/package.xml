@@ -11,6 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>gz-transport13</depend>
   <depend>gz-msgs10</depend>
 

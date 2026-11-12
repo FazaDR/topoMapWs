@@ -5,123 +5,59 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(preprocess REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(Eigen3 REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
 
-include_directories(include ${PCL_INCLUDE_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-
-add_library(mlatc
-  src/mlatc.cpp
-)
-target_include_directories(mlatc PUBLIC include)
-target_link_libraries(mlatc Eigen3::Eigen)
-
-add_executable(topology_node
-    src/topology_main.cpp
-    src/topology_node.cpp
-    src/atcdt.cpp
+# ---------------- core library ----------------
+add_library(atc_core SHARED
+  src/core/topological_map.cpp
+  src/core/atc_layer.cpp
+  src/core/atc.cpp
+  src/core/free_area.cpp
+  src/core/free_area_kdtree.cpp
+  src/core/hierarchy.cpp
+  src/core/mlatc.cpp
 )
 
-add_executable(mlatc_node
-  src/mlatc_node.cpp
-  src/mlatc_main.cpp
+target_include_directories(atc_core
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE
+    ${PCL_INCLUDE_DIRS}
+)
+target_compile_definitions(atc_core PRIVATE ${PCL_DEFINITIONS})
+target_link_libraries(atc_core
+  PUBLIC Eigen3::Eigen
+  PRIVATE ${PCL_LIBRARIES}
 )
 
-add_executable(atcdt_free_node
-  src/atcdt_free_node.cpp
-  src/atcdt_free_main.cpp
-  src/atcdt.cpp
-)
+# ---------------- node (add once mapping_node.* is written) ----------------
+# add_executable(mapping_node src/mapping_node.cpp src/mapping_main.cpp)
+# target_link_libraries(mapping_node atc_core)
+# ament_target_dependencies(mapping_node rclcpp preprocess sensor_msgs visualization_msgs)
+# install(TARGETS mapping_node DESTINATION lib/${PROJECT_NAME})
 
-add_executable(mlatc_free_node
-  src/mlatc_free_node.cpp
-  src/mlatc_free_main.cpp
+install(TARGETS atc_core
+  EXPORT export_atc_core
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
+install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})   # once config/ exists
 
-target_include_directories(mlatc_node PRIVATE include)
-
-ament_target_dependencies(topology_node
-    rclcpp
-    preprocess
-    sensor_msgs
-    visualization_msgs
-)
-
-ament_target_dependencies(mlatc_node
-    rclcpp
-    preprocess
-    sensor_msgs
-    visualization_msgs
-)
-
-ament_target_dependencies(atcdt_free_node
-    rclcpp
-    preprocess
-    sensor_msgs
-    visualization_msgs
-)
-
-ament_target_dependencies(mlatc_free_node
-    rclcpp
-    preprocess
-    sensor_msgs
-    geometry_msgs
-    visualization_msgs
-)
-
-target_link_libraries(topology_node
-    Eigen3::Eigen
-    preprocess::preprocess__rosidl_typesupport_cpp
-    preprocess::preprocess__rosidl_generator_c
-)
-
-target_link_libraries(mlatc_node
-    mlatc
-    Eigen3::Eigen
-    preprocess::preprocess__rosidl_typesupport_cpp
-    preprocess::preprocess__rosidl_generator_c
-)
-
-target_link_libraries(atcdt_free_node
-    Eigen3::Eigen
-    ${PCL_LIBRARIES}
-    preprocess::preprocess__rosidl_typesupport_cpp
-    preprocess::preprocess__rosidl_generator_c
-)
-
-target_link_libraries(mlatc_free_node
-    mlatc
-    Eigen3::Eigen
-    ${PCL_LIBRARIES}
-    preprocess::preprocess__rosidl_typesupport_cpp
-    preprocess::preprocess__rosidl_generator_c
-)
-
-install(TARGETS
-    mlatc
-    topology_node
-    mlatc_node
-    atcdt_free_node
-    mlatc_free_node
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY include/
-  DESTINATION include
-)
-
-install(
-    DIRECTORY launch
-    DESTINATION share/${PROJECT_NAME}
-)
+ament_export_targets(export_atc_core HAS_LIBRARY_TARGET)
+ament_export_dependencies(Eigen3)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

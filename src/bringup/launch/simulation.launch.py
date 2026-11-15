@@ -101,7 +101,7 @@ def generate_launch_description():
             "'",
             world_name,
             "' == 'divider_room'"
-        ])),
+        ])),    
         output='screen',
     )
 

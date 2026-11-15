@@ -12,6 +12,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(preprocess REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
@@ -40,11 +42,26 @@ target_link_libraries(atc_core
   PRIVATE ${PCL_LIBRARIES}
 )
 
-# ---------------- node (add once mapping_node.* is written) ----------------
-# add_executable(mapping_node src/mapping_node.cpp src/mapping_main.cpp)
-# target_link_libraries(mapping_node atc_core)
-# ament_target_dependencies(mapping_node rclcpp preprocess sensor_msgs visualization_msgs)
-# install(TARGETS mapping_node DESTINATION lib/${PROJECT_NAME})
+# ---------------- node ----------------
+add_executable(mapping_node
+  src/mapping_node.cpp
+  src/mapping_main.cpp
+)
+target_include_directories(mapping_node PRIVATE include)
+target_link_libraries(mapping_node
+  atc_core
+  Eigen3::Eigen
+  preprocess::preprocess__rosidl_typesupport_cpp
+  preprocess::preprocess__rosidl_generator_c
+)
+ament_target_dependencies(mapping_node
+  rclcpp
+  preprocess
+  sensor_msgs
+  geometry_msgs
+  std_msgs
+  visualization_msgs
+)
 
 install(TARGETS atc_core
   EXPORT export_atc_core
@@ -52,6 +69,7 @@ install(TARGETS atc_core
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+install(TARGETS mapping_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 # install(DIRECTORY config DESTINATION share/${PROJECT_NAME})   # once config/ exists

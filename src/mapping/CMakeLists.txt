@@ -17,6 +17,8 @@ find_package(std_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
+find_package(rosbag2_cpp REQUIRED)
+find_package(rosbag2_storage REQUIRED)
 
 # ---------------- core library ----------------
 add_library(atc_core SHARED
@@ -28,6 +30,7 @@ add_library(atc_core SHARED
   src/core/hierarchy.cpp
   src/core/mlatc.cpp
 )
+
 
 target_include_directories(atc_core
   PUBLIC
@@ -54,6 +57,7 @@ target_link_libraries(mapping_node
   preprocess::preprocess__rosidl_typesupport_cpp
   preprocess::preprocess__rosidl_generator_c
 )
+
 ament_target_dependencies(mapping_node
   rclcpp
   preprocess
@@ -61,8 +65,11 @@ ament_target_dependencies(mapping_node
   geometry_msgs
   std_msgs
   visualization_msgs
+  rosbag2_cpp
+  rosbag2_storage
 )
 
+# ---------------- install ----------------
 install(TARGETS atc_core
   EXPORT export_atc_core
   ARCHIVE DESTINATION lib
@@ -71,8 +78,7 @@ install(TARGETS atc_core
 )
 install(TARGETS mapping_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})   # once config/ exists
+install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_atc_core HAS_LIBRARY_TARGET)
 ament_export_dependencies(Eigen3)

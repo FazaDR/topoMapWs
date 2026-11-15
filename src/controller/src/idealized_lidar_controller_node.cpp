@@ -9,7 +9,7 @@ IdealizedLidarControllerNode::IdealizedLidarControllerNode()
 : Node("idealized_lidar_controller"),
   world_name_(declare_parameter("world", "winding_room")),
   model_name_(declare_parameter("model", "idealized_lidar")),
-  speed_(declare_parameter("speed", 0.5)),
+  speed_(declare_parameter("speed", 4.0)),
   goal_tolerance_(declare_parameter("goal_tolerance", 0.75))
 {
   if (speed_ <= 0.0 || goal_tolerance_ <= 0.0) {
@@ -19,23 +19,23 @@ IdealizedLidarControllerNode::IdealizedLidarControllerNode()
   // Waypoints use the same startup-local frame as the DDMR controller. The
   // initial pose is (0, 0, 0), so this path starts at the spawned pose.
   const std::vector<std::pair<double, double>> default_waypoints = {
-    {0.0, 0.0},
-    {0.0, 9.0},
-    {6.5, 9.0},
-    {6.5, 0.0},
-    // {16, 0},
-    // {16, -4},
-    // {0.0, -4},
-    // {0.0, -8},
-    // {16.0, -8},
-    // {16.0, -12},
-    // {0.0, -12},
-    // {0.0, -16},
-    // {16.0, -16},
-    // {16.0, -21},
-    // {-4.0, -21},
-    // {-4.0, 0.0},
     // {0.0, 0.0},
+    // {0.0, 9.0},
+    // {6.5, 9.0},
+    // {6.5, 0.0},
+    {16, 0},
+    {16, -4},
+    {0.0, -4},
+    {0.0, -8},
+    {16.0, -8},
+    {16.0, -12},
+    {0.0, -12},
+    {0.0, -16},
+    {16.0, -16},
+    {16.0, -21},
+    {-4.0, -21},
+    {-4.0, 0.0},
+    {0.0, 0.0},
   };
   waypoints_.reserve(default_waypoints.size());
   for (const auto &[x, y] : default_waypoints) {

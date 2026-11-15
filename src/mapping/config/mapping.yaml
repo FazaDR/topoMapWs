@@ -1,0 +1,54 @@
+/**:
+  ros__parameters:
+    # ---- frame / geometry ----
+    up_axis: "z"                       # "z" (Gazebo) or "y"
+    lidar_offset: [0.0, 0.0, 0.0]      # keep zero: preprocess already applies the sensor offset
+
+    # ---- topics ----
+    input_topic: "/mapping/processed_scan"
+    marker_topic: "/mapping/markers"
+    qos_depth: 10
+
+    # ---- shared algorithm parameters ----
+    lambda_points: 3500                # papers use 4000
+    seed: 42
+    deg_max_deg: 30.0                  # Original ATC-DT Table 1: 20.0
+    theta_thr_deg: 180.0               # Original ATC-DT Table 1: 135.0
+
+    # ---- ATC only ----
+    vigilance: 1.0
+    random_init: true
+
+    # ---- MLATC only ----
+    base_vigilance: 1.0                # MLATC paper: 0.5
+    alpha: 4.0
+
+    # ---- free-area deletion (used when free_area_enabled is true) ----
+    free_area:
+      sectors: 24
+      horizontal_band: 0.15
+      distance: 0.9
+      fov_degrees: 360.0
+      margin: 0.1
+
+    # ---- RViz visualization ----
+    marker_frame: ""                   # empty = use the cloud's frame ("map")
+    marker_period: 0.2                 # seconds of wall time between publishes
+    node_size: 0.12
+    edge_width: 0.02
+    layer_mode: "all"                  # layer1 | all | hierarchy (MLATC only)
+    layer_z_offset: 3.0
+    free_area_viz: "both"              # off | nodes | area | both
+
+    # ---- metrics ----
+    metrics:
+      enabled: true
+      save_map_on_shutdown: false
+      output_dir: ""                   # empty = ~/mapping_metrics
+
+    # ---- replay (set replay.bag to feed a bag directly into the mapper) ----
+    replay:
+      bag: "/home/faza/topoMapWs/win_ideal"          # path to the bag directory; empty = live mode
+      storage_id: "sqlite3"  # "sqlite3" or "mcap"
+      rate: 0.0              # 0 = as fast as possible, 1.0 = real time, 0.5 = half speed
+      save_map: true         # write node/edge/hierarchy CSVs when the bag ends

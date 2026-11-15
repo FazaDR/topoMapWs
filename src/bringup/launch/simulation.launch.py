@@ -183,7 +183,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'robot_model',
-            default_value='ddmr',
+            default_value='idealized_lidar',
             choices=['ddmr', 'idealized_lidar'],
             description='Model to spawn: ddmr or idealized_lidar',
         ),

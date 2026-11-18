@@ -10,24 +10,24 @@
     qos_depth: 10
 
     # ---- shared algorithm parameters ----
-    lambda_points: 3500                # papers use 4000
+    lambda_points: 33000                # papers use 4000
     seed: 42
     deg_max_deg: 30.0                  # Original ATC-DT Table 1: 20.0
     theta_thr_deg: 180.0               # Original ATC-DT Table 1: 135.0
 
     # ---- ATC only ----
-    vigilance: 0.3
+    vigilance: 0.2
     random_init: true
 
     # ---- MLATC only ----
-    base_vigilance: 0.3                # MLATC paper: 0.5
+    base_vigilance: 0.2                # MLATC paper: 0.5
     alpha: 4.0
 
     # ---- free-area deletion (used when free_area_enabled is true) ----
     free_area:
       sectors: 24
       horizontal_band: 0.15
-      distance: 0.2
+      distance: 0.4
       fov_degrees: 360.0
       margin: 0.1
 
@@ -37,7 +37,7 @@
     node_size: 0.12
     edge_width: 0.02
     layer_mode: "all"                  # layer1 | all | hierarchy (MLATC only)
-    layer_z_offset: 3.0
+    layer_z_offset: 6.0
     free_area_viz: "both"              # off | nodes | area | both
 
     # ---- metrics ----

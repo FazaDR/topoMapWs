@@ -17,7 +17,7 @@ from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 
 # ============================ SETTINGS (edit here) ============================
-BAG_DIR      = "/home/faza/topoMapWs/win_ideal_2"
+BAG_DIR      = "/home/faza/topoMapWs/win_ideal_many"
 STORAGE_ID   = "sqlite3"
 TOPIC        = "/mapping/processed_scan"
 TF_TOPIC     = "/tf"

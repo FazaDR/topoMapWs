@@ -133,7 +133,8 @@ def generate_launch_description():
                 PythonExpression([
                     "'/home/faza/topoMapWs/src/scenarios/worlds/' + '", world_name, "' + '.boxes'"]),
                 value_type=str),
-            'scan_rate_hz': 5.0,
+            'scan_rate_hz': 10.0,
+            'v_samples': 128,
             'remove_box': ParameterValue(
                 PythonExpression([
                     "'disappearing_wall' if '", world_name, "' == 'divider_room' else ''"]),
@@ -170,7 +171,7 @@ def generate_launch_description():
             'world': world_name,
             'use_sim_time': True,
             'turn_mode': 'smooth',
-            'max_yaw_rate': 1.5,
+            'max_yaw_rate': 1.0,
         }],
         condition=IfCondition(PythonExpression([
             "'",

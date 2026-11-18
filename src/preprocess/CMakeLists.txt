@@ -29,6 +29,8 @@ add_executable(preprocess_node
   src/preprocess_node.cpp
 )
 
+
+
 target_include_directories(preprocess_node PRIVATE include)
 
 ament_target_dependencies(preprocess_node
@@ -58,6 +60,10 @@ install(DIRECTORY include/
 )
 
 ament_export_dependencies(rosidl_default_runtime)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

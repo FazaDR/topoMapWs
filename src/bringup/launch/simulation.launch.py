@@ -125,10 +125,20 @@ def generate_launch_description():
 
     preprocess = Node(
         package='preprocess',
-        executable='preprocess_node',       # exact name from your CMake add_executable
+        executable='preprocess_node',
         parameters=[{
             'robot_name': robot_model,
             'world': world_name,
+            'boxes_file': ParameterValue(
+                PythonExpression([
+                    "'/home/faza/topoMapWs/src/scenarios/worlds/' + '", world_name, "' + '.boxes'"]),
+                value_type=str),
+            'scan_rate_hz': 5.0,
+            'remove_box': ParameterValue(
+                PythonExpression([
+                    "'disappearing_wall' if '", world_name, "' == 'divider_room' else ''"]),
+                value_type=str),
+            'remove_after_sec': 30.0,
             'lidar_offset_z': ParameterValue(
                 PythonExpression(["0.49 if '", robot_model, "' == 'ddmr' else 0.0"]),
                 value_type=float),
@@ -139,6 +149,7 @@ def generate_launch_description():
         }],
         output='screen',
     )
+
 
     clock_bridge = Node(
         package='ros_gz_bridge',
@@ -159,7 +170,7 @@ def generate_launch_description():
             'world': world_name,
             'use_sim_time': True,
             'turn_mode': 'smooth',
-            'max_yaw_rate': 0.5,
+            'max_yaw_rate': 1.5,
         }],
         condition=IfCondition(PythonExpression([
             "'",

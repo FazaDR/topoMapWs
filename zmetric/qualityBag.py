@@ -25,7 +25,7 @@ from scipy.spatial.transform import Rotation, Slerp
 from rosbag2_py import SequentialReader, StorageOptions, ConverterOptions
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
-
+    
 # ============================ SETTINGS (edit here) ============================
 BAG_DIR       = "/home/faza/topoMapWs/win_ideal_2"
 STORAGE_ID    = "sqlite3"

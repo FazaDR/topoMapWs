@@ -52,7 +52,7 @@ def generate_launch_description():
             'params_file', default_value=default_params,
             description='YAML with node parameters'),
         DeclareLaunchArgument(
-            'output_dir', default_value='',
+            'output_dir', default_value='/home/faza/topoMapWs/zmapping_out',
             description='Metrics output directory (empty = ~/mapping_metrics)'),
         DeclareLaunchArgument(
             'replay_bag', default_value='',

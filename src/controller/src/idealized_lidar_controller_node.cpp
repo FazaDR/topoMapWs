@@ -6,18 +6,33 @@
 #include <stdexcept>
 
 IdealizedLidarControllerNode::IdealizedLidarControllerNode()
-: Node("idealized_lidar_controller"),
-  world_name_(declare_parameter("world", "winding_room")),
-  model_name_(declare_parameter("model", "idealized_lidar")),
-  speed_(declare_parameter("speed", 4.0)),
-  goal_tolerance_(declare_parameter("goal_tolerance", 0.75))
+: Node("idealized_lidar_controller")
 {
-  if (speed_ <= 0.0 || goal_tolerance_ <= 0.0) {
-    throw std::invalid_argument("speed and goal_tolerance must be positive");
+  world_name_ = declare_parameter<std::string>("world", "winding_room");
+  model_name_ = declare_parameter<std::string>("model", "idealized_lidar");
+  speed_ = declare_parameter<double>("speed", 4.0);
+  goal_tolerance_ = declare_parameter<double>("goal_tolerance", 0.05);
+  max_yaw_rate_ = declare_parameter<double>("max_yaw_rate", 0.5);
+  control_period_s_ = declare_parameter<double>("control_period", 0.02);
+  align_threshold_ =
+    declare_parameter<double>("align_threshold_deg", 2.0) * M_PI / 180.0;
+  shutdown_on_finish_ = declare_parameter<bool>("shutdown_on_finish", false);
+
+  const std::string turn_mode = declare_parameter<std::string>("turn_mode", "snap");
+  if (turn_mode != "snap" && turn_mode != "smooth") {
+    throw std::invalid_argument("turn_mode must be 'snap' or 'smooth'");
+  }
+  snap_turn_ = (turn_mode == "snap");
+  dwell_s_ = declare_parameter<double>("turn_dwell_s", 0.5);
+
+  if (speed_ <= 0.0 || goal_tolerance_ <= 0.0 || max_yaw_rate_ <= 0.0 ||
+    control_period_s_ <= 0.0 || dwell_s_ < 0.0)
+  {
+    throw std::invalid_argument(
+            "speed, goal_tolerance, max_yaw_rate, control_period must be positive");
   }
 
-  // Waypoints use the same startup-local frame as the DDMR controller. The
-  // initial pose is (0, 0, 0), so this path starts at the spawned pose.
+  // Waypoints are in the startup-local frame: (0, 0) is the spawn position.
   const std::vector<std::pair<double, double>> default_waypoints = {
     // {0.0, 0.0},
     // {0.0, 9.0},
@@ -44,53 +59,50 @@ IdealizedLidarControllerNode::IdealizedLidarControllerNode()
 
   gz_node_.Subscribe(
     "/world/" + world_name_ + "/dynamic_pose/info",
-    &IdealizedLidarControllerNode::poseCallback,
-    this);
+    &IdealizedLidarControllerNode::poseCallback, this);
 
   trajectory_sub_ = create_subscription<nav_msgs::msg::Path>(
-    "/idealized_lidar/trajectory",
-    rclcpp::QoS(10),
+    "/idealized_lidar/trajectory", rclcpp::QoS(10),
     std::bind(
-      &IdealizedLidarControllerNode::trajectoryCallback,
-      this,
-      std::placeholders::_1));
+      &IdealizedLidarControllerNode::trajectoryCallback, this, std::placeholders::_1));
 
+  // Node clock = sim time when use_sim_time is true.
   control_timer_ = rclcpp::create_timer(
-    this,
-    get_clock(),
-    std::chrono::milliseconds(50),
+    this, get_clock(),
+    std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(control_period_s_)),
     std::bind(&IdealizedLidarControllerNode::controlLoop, this));
 
   RCLCPP_INFO(
     get_logger(),
-    "Idealized LiDAR controller started with %zu default waypoints. "
-    "Publish a replacement startup-local trajectory on "
-    "/idealized_lidar/trajectory.",
-    waypoints_.size());
+    "Idealized LiDAR controller: %zu waypoints, speed %.2f m/s (%.1f mm/step), "
+    "turn_mode=%s (dwell %.2f s, smooth rate %.2f rad/s), period %.0f ms.",
+    waypoints_.size(), speed_, speed_ * control_period_s_ * 1000.0, turn_mode.c_str(),
+    dwell_s_, max_yaw_rate_, control_period_s_ * 1000.0);
 }
 
+// Gazebo's pose only initializes the local frame. After that the controller
+// dead-reckons, because late Gazebo samples would overwrite the commanded state.
 void IdealizedLidarControllerNode::poseCallback(const gz::msgs::Pose_V &msg)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  if (initialized_) {
+    return;
+  }
   for (int i = 0; i < msg.pose_size(); ++i) {
     const auto &pose = msg.pose(i);
     if (pose.name() != model_name_) {
       continue;
     }
-    x_ = pose.position().x();
-    y_ = pose.position().y();
-    z_ = pose.position().z();
-    pose_received_ = true;
-    if (!initialized_) {
-      origin_x_ = x_;
-      origin_y_ = y_;
-      origin_z_ = z_;
-      initialized_ = true;
-      RCLCPP_INFO(get_logger(), "Local frame initialized.");
-      const auto &q = pose.orientation();
-      yaw_ = std::atan2(2.0 * (q.w()*q.z() + q.x()*q.y()),
-                        1.0 - 2.0 * (q.y()*q.y() + q.z()*q.z()));
-    }
+    x_ = origin_x_ = pose.position().x();
+    y_ = origin_y_ = pose.position().y();
+    z_ = origin_z_ = pose.position().z();
+    const auto &q = pose.orientation();
+    yaw_ = std::atan2(
+      2.0 * (q.w() * q.z() + q.x() * q.y()),
+      1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
+    initialized_ = true;
+    RCLCPP_INFO(get_logger(), "Local frame initialized.");
     return;
   }
 }
@@ -114,92 +126,120 @@ void IdealizedLidarControllerNode::trajectoryCallback(
   waypoints_.reserve(msg->poses.size());
   for (const auto &pose : msg->poses) {
     waypoints_.push_back({
-      pose.pose.position.x,
-      pose.pose.position.y,
-      pose.pose.position.z,
-    });
+      pose.pose.position.x, pose.pose.position.y, pose.pose.position.z});
   }
   current_waypoint_ = 0;
+  finished_ = false;
+  snap_pending_ = false;
   RCLCPP_INFO(get_logger(), "Received %zu trajectory waypoints.", waypoints_.size());
 }
 
 void IdealizedLidarControllerNode::controlLoop()
 {
-  // Read simulation time.
-  const double current_sim_time = get_clock()->now().seconds();
-
-  // Initialize the timestamp on the first callback.
+  const double now_s = get_clock()->now().seconds();
   if (last_sim_time_sec_ < 0.0) {
-    last_sim_time_sec_ = current_sim_time;
+    last_sim_time_sec_ = now_s;
     return;
   }
-
-  const double dt = current_sim_time - last_sim_time_sec_;
-  last_sim_time_sec_ = current_sim_time;
-
-  // Do not move if simulation time has not advanced.
+  double dt = now_s - last_sim_time_sec_;
+  last_sim_time_sec_ = now_s;
   if (dt <= 0.0) {
-    return;
+    return;                                   // sim time has not advanced
   }
+  dt = std::min(dt, 2.0 * control_period_s_); // a late tick must not become a jump
 
-  Waypoint target;
-  double current_x;
-  double current_y;
-  double current_z; 
-  double yaw = yaw_;
-
-
+  Waypoint target{};
+  double cx, cy, cz, yaw;
+  bool has_target = false;
+  bool just_finished = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-
-    if (!initialized_ || current_waypoint_ >= waypoints_.size()) {
+    if (!initialized_) {
       return;
     }
-
-    target = waypoints_[current_waypoint_];
-    current_x = x_ - origin_x_;
-    current_y = y_ - origin_y_;
-    current_z = z_ - origin_z_;
+    if (current_waypoint_ < waypoints_.size()) {
+      target = waypoints_[current_waypoint_];
+      has_target = true;
+    } else if (!finished_) {
+      finished_ = true;
+      just_finished = true;
+    }
+    cx = x_ - origin_x_;
+    cy = y_ - origin_y_;
+    cz = z_ - origin_z_;
     yaw = yaw_;
   }
 
-  const double dx = target.x - current_x;
-  const double dy = target.y - current_y;
-  const double dz = target.z - current_z;
+  if (just_finished) {
+    RCLCPP_INFO(get_logger(), "Mission complete.");
+    if (shutdown_on_finish_) {
+      rclcpp::shutdown();
+    }
+    return;
+  }
+  if (!has_target) {
+    return;
+  }
 
-  const double distance = std::sqrt(
-    dx * dx + dy * dy + dz * dz);
+  const double dx = target.x - cx;
+  const double dy = target.y - cy;
+  const double dz = target.z - cz;
+  const double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
 
-  const double step = speed_ * dt;
-
-  // Turn toward the travel direction first (same idea as the DDMR's ROTATE state).
+  // ---------------- heading ----------------
   double heading_error = 0.0;
   if (std::hypot(dx, dy) > 1e-3) {
     const double desired = std::atan2(dy, dx);
     heading_error = std::atan2(std::sin(desired - yaw), std::cos(desired - yaw));
-    const double max_turn = max_yaw_rate_ * dt;
-    yaw += std::clamp(heading_error, -max_turn, max_turn);
-    yaw = std::atan2(std::sin(yaw), std::cos(yaw));
-    heading_error = std::atan2(std::sin(desired - yaw), std::cos(desired - yaw));
+
+    if (snap_turn_) {
+      if (now_s < hold_until_) {
+        return;                               // stationary during the dwell
+      }
+      if (std::abs(heading_error) > align_threshold_) {
+        if (!snap_pending_) {                 // pause before the jump
+          snap_pending_ = true;
+          hold_until_ = now_s + dwell_s_;
+          return;
+        }
+        const Waypoint here{origin_x_ + cx, origin_y_ + cy, origin_z_ + cz};
+        if (!setPose(here, desired)) {        // same position, new yaw
+          return;                             // retry next tick
+        }
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          yaw_ = desired;
+        }
+        snap_pending_ = false;
+        hold_until_ = now_s + dwell_s_;       // pause after the jump
+        return;
+      }
+    } else {
+      const double max_turn = max_yaw_rate_ * dt;
+      yaw += std::clamp(heading_error, -max_turn, max_turn);
+      yaw = std::atan2(std::sin(yaw), std::cos(yaw));
+      heading_error = std::atan2(std::sin(desired - yaw), std::cos(desired - yaw));
+    }
   }
-  const bool aligned = std::abs(heading_error) < 5.0 * M_PI / 180.0;   // same threshold as DDMR
+  const bool aligned = std::abs(heading_error) < align_threshold_;
 
-  const bool arrived = distance <= step || distance <= goal_tolerance_;
-
-  Waypoint next{current_x, current_y, current_z};     // stay put while turning
-  if (arrived) {
-    next = target;
-  } else if (aligned) {
-    const double scale = step / distance;
-    next = {current_x + dx * scale, current_y + dy * scale, current_z + dz * scale};
+  // ---------------- translation (never more than speed * dt) ----------------
+  Waypoint next{cx, cy, cz};
+  bool arrived = false;
+  if (aligned && distance > 1e-9) {
+    const double move = std::min(speed_ * dt, distance);
+    const double s = move / distance;
+    next = {cx + dx * s, cy + dy * s, cz + dz * s};
+    arrived = (distance - move) <= goal_tolerance_;
+  } else if (distance <= goal_tolerance_) {
+    arrived = true;                           // already there (repeated waypoint)
   }
 
   const Waypoint world_pose{origin_x_ + next.x, origin_y_ + next.y, origin_z_ + next.z};
-
   if (!setPose(world_pose, yaw)) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
-      "Failed to move model '%s'.", model_name_.c_str());
-    return;
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000, "Failed to move model '%s'.", model_name_.c_str());
+    return;                                   // state unchanged, retry
   }
 
   {
@@ -208,7 +248,6 @@ void IdealizedLidarControllerNode::controlLoop()
     y_ = world_pose.y;
     z_ = world_pose.z;
     yaw_ = yaw;
-
     if (arrived) {
       RCLCPP_INFO(get_logger(), "Reached waypoint %zu.", current_waypoint_);
       ++current_waypoint_;
@@ -230,11 +269,7 @@ bool IdealizedLidarControllerNode::setPose(const Waypoint &pose, double yaw)
 
   gz::msgs::Boolean reply;
   bool result = false;
-  bool executed = gz_node_.Request(
-    "/world/" + world_name_ + "/set_pose",
-    request,
-    100,
-    reply,
-    result);
+  const bool executed = gz_node_.Request(
+    "/world/" + world_name_ + "/set_pose", request, 100, reply, result);
   return executed && result && reply.data();
 }

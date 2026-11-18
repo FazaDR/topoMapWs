@@ -133,6 +133,9 @@ def generate_launch_description():
                 PythonExpression(["0.49 if '", robot_model, "' == 'ddmr' else 0.0"]),
                 value_type=float),
             'use_sim_time': True,
+            'hold_pose': ParameterValue(
+                PythonExpression(["'true' if '", robot_model, "' == 'idealized_lidar' else 'false'"]),
+                value_type=bool),
         }],
         output='screen',
     )
@@ -152,7 +155,12 @@ def generate_launch_description():
     idealized_lidar_controller = Node(
         package='controller',
         executable='idealized_lidar_controller',
-        parameters=[{'world': world_name,'use_sim_time': True}],
+        parameters=[{
+            'world': world_name,
+            'use_sim_time': True,
+            'turn_mode': 'smooth',
+            'max_yaw_rate': 0.5,
+        }],
         condition=IfCondition(PythonExpression([
             "'",
             robot_model,

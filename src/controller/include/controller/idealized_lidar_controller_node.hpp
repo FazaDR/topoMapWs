@@ -10,9 +10,9 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include <gz/msgs/boolean.pb.h>
 #include <gz/msgs/pose.pb.h>
 #include <gz/msgs/pose_v.pb.h>
-#include <gz/msgs/boolean.pb.h>
 #include <gz/transport/Node.hh>
 
 class IdealizedLidarControllerNode : public rclcpp::Node
@@ -32,29 +32,40 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr trajectory_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;
 
+  // Parameters
   std::string world_name_;
   std::string model_name_;
+  double speed_{0.5};               // [m/s]
+  double goal_tolerance_{0.05};     // [m]
+  double max_yaw_rate_{0.5};        // [rad/s] (smooth mode only)
+  double control_period_s_{0.02};   // [s] sim time
+  double align_threshold_{0.035};   // [rad]
+  bool snap_turn_{true};            // true: pause, jump yaw, pause. false: rate-limited turn
+  double dwell_s_{0.5};             // [s] pause before and after a snap turn
+  bool shutdown_on_finish_{false};
+
+  // State (dead-reckoned; Gazebo's pose is only used for initialization)
   double last_sim_time_sec_{-1.0};
-  double speed_;
-  double goal_tolerance_;
   double x_{0.0};
   double y_{0.0};
-  double z_{1.0};
+  double z_{0.0};
+  double yaw_{0.0};
   double origin_x_{0.0};
   double origin_y_{0.0};
-  double origin_z_{1.0};
-  bool pose_received_{false};
+  double origin_z_{0.0};
   bool initialized_{false};
+  bool finished_{false};
+
+  // Touched only from the timer thread
+  bool snap_pending_{false};
+  double hold_until_{-1.0};
+
   std::vector<Waypoint> waypoints_;
   std::size_t current_waypoint_{0};
   std::mutex mutex_;
 
-  double yaw_{0.0};
-  double max_yaw_rate_{1.5};
-  bool setPose(const Waypoint &pose, double yaw);
-  
   void poseCallback(const gz::msgs::Pose_V &msg);
   void trajectoryCallback(const nav_msgs::msg::Path::SharedPtr msg);
   void controlLoop();
-  bool setPose(const Waypoint &pose);
+  bool setPose(const Waypoint &pose, double yaw);
 };

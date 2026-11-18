@@ -7,20 +7,30 @@
       <kinematic>true</kinematic>
 
       <visual name="body_visual">
+        <pose>0 0 0 0 0 0</pose>
         <geometry>
-          <sphere>
-            <radius>0.12</radius>
-          </sphere>
+          <box><size>0.30 0.20 0.08</size></box>
         </geometry>
         <material>
           <ambient>1 0.15 0.05 1</ambient>
           <diffuse>1 0.25 0.05 1</diffuse>
-          <emissive>0.15 0.02 0 1</emissive>
+        </material>
+      </visual>
+
+      <visual name="nose_visual">
+        <pose>0.15 0 0 0 0 0</pose>
+        <geometry>
+          <box><size>0.08 0.20 0.09</size></box>
+        </geometry>
+        <material>
+          <ambient>0.1 1 0.2 1</ambient>
+          <diffuse>0.1 1 0.2 1</diffuse>
+          <emissive>0 0.3 0.05 1</emissive>
         </material>
       </visual>
 
       <sensor name="lidar" type="gpu_lidar">
-        <update_rate>10</update_rate>
+        <update_rate>5</update_rate>
         <topic>points</topic>
         <ray>
           <scan>
@@ -38,7 +48,7 @@
             </vertical>
           </scan>
           <range>
-            <min>0.1</min>
+            <min>0.3</min>
             <max>20.0</max>
             <resolution>0.01</resolution>
           </range>

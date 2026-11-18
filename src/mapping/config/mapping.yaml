@@ -16,18 +16,18 @@
     theta_thr_deg: 180.0               # Original ATC-DT Table 1: 135.0
 
     # ---- ATC only ----
-    vigilance: 1.0
+    vigilance: 0.3
     random_init: true
 
     # ---- MLATC only ----
-    base_vigilance: 1.0                # MLATC paper: 0.5
+    base_vigilance: 0.3                # MLATC paper: 0.5
     alpha: 4.0
 
     # ---- free-area deletion (used when free_area_enabled is true) ----
     free_area:
       sectors: 24
       horizontal_band: 0.15
-      distance: 0.9
+      distance: 0.2
       fov_degrees: 360.0
       margin: 0.1
 

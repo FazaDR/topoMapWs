@@ -13,7 +13,9 @@
 
   <plugin
     filename="gz-sim-scene-broadcaster-system"
-    name="gz::sim::systems::SceneBroadcaster"/>
+    name="gz::sim::systems::SceneBroadcaster">
+    <dynamic_pose_hertz>1000</dynamic_pose_hertz>
+  </plugin>
 
   <plugin
     filename="gz-sim-sensors-system"

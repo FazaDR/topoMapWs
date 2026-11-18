@@ -21,7 +21,7 @@
     <xacro:property name="lidar_mass" value="1.0"/>
 
         <!-- Scan -->
-    <xacro:property name="lidar_update_rate" value="10"/>
+    <xacro:property name="lidar_update_rate" value="5"/>
 
     <xacro:property name="lidar_horizontal_samples" value="256"/>
     <xacro:property name="lidar_vertical_samples" value="64"/>

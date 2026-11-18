@@ -311,7 +311,7 @@
         </geometry>
       </collision>
       <sensor name="lidar" type="gpu_lidar">
-        <update_rate>10</update_rate>
+        <update_rate>5</update_rate>
         <topic>points</topic>
         <pose>0 0 0 0 0 0</pose>
         <ray>

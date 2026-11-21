@@ -8,6 +8,7 @@
 #include <ctime>
 #include <filesystem>
 #include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -156,6 +157,7 @@ MappingNode::MappingNode()
   metrics_enabled_ = declare_parameter<bool>("metrics.enabled", true);
   save_map_on_shutdown_ = declare_parameter<bool>("metrics.save_map_on_shutdown", false);
   output_dir_ = declare_parameter<std::string>("metrics.output_dir", "");
+  const std::string run_name = declare_parameter<std::string>("metrics.run_name", "");
   if (!replay_bag_.empty() && replay_save_map) {
     save_map_on_shutdown_ = true;
   }
@@ -166,6 +168,12 @@ MappingNode::MappingNode()
     static_cast<float>(declare_parameter<double>("deg_max_deg", 30.0) * M_PI / 180.0);
   const float theta_thr =
     static_cast<float>(declare_parameter<double>("theta_thr_deg", 180.0) * M_PI / 180.0);
+  const std::string pool_str = declare_parameter<std::string>("pool_mode", "s1");
+  const atc_core::PoolMode pool_mode =
+    (pool_str == "one_hop") ? atc_core::PoolMode::OneHop : atc_core::PoolMode::S1Only;
+  if (pool_str != "s1" && pool_str != "one_hop") {
+    RCLCPP_WARN(get_logger(), "Unknown pool_mode '%s', using 's1'", pool_str.c_str());
+  }
 
   const float vigilance = static_cast<float>(declare_parameter<double>("vigilance", 1.0));
   const bool random_init = declare_parameter<bool>("random_init", true);
@@ -192,6 +200,7 @@ MappingNode::MappingNode()
     c.deg_max = deg_max;
     c.theta_thr = theta_thr;
     c.up_axis = up_axis_;
+    c.pool_mode = pool_mode;
     if (free_enabled) {
       c.free_area = fa;
     }
@@ -205,6 +214,7 @@ MappingNode::MappingNode()
     c.deg_max = deg_max;
     c.theta_thr = theta_thr;
     c.up_axis = up_axis_;
+    c.pool_mode = pool_mode;
     if (free_enabled) {
       c.free_area = fa;
     }
@@ -236,7 +246,34 @@ MappingNode::MappingNode()
 
   // ---------------- metrics ----------------
   if (metrics_enabled_ || save_map_on_shutdown_) {
-    openMetrics(output_dir_);
+    std::string bag = replay_bag_;
+    while (!bag.empty() && bag.back() == '/') {
+      bag.pop_back();
+    }
+    const std::string bag_name =
+      bag.empty() ? "live" : std::filesystem::path(bag).filename().string();
+    const std::string label = !run_name.empty() ?
+      run_name : bag_name + "_" + algorithm + (free_enabled ? "_free" : "_nofree");
+
+    std::ostringstream meta;
+    meta << "algorithm: " << algorithm << "\n"
+         << "free_area_enabled: " << free_enabled << "\n"
+         << "source: " << (replay_bag_.empty() ? "live" : replay_bag_) << "\n"
+         << "lambda_points: " << lambda_points << "\n"
+         << "seed: " << seed << "\n"
+         << "vigilance: " << vigilance << "\n"
+         << "base_vigilance: " << base_vigilance << "\n"
+         << "alpha: " << alpha << "\n"
+         << "deg_max_deg: " << deg_max * 180.0 / M_PI << "\n"
+         << "theta_thr_deg: " << theta_thr * 180.0 / M_PI << "\n"
+         << "pool_mode: " << pool_str << "\n"
+         << "free_area.sectors: " << fa.sectors << "\n"
+         << "free_area.horizontal_band: " << fa.horizontal_band << "\n"
+         << "free_area.distance: " << fa.distance << "\n"
+         << "free_area.fov_degrees: " << fa.fov_degrees << "\n"
+         << "free_area.margin: " << fa.margin << "\n";
+
+    openMetrics(output_dir_, label, meta.str());
   }
 
   RCLCPP_INFO(
@@ -259,7 +296,8 @@ MappingNode::~MappingNode()
 // Metrics
 // ======================================================================
 
-void MappingNode::openMetrics(const std::string & dir_param)
+void MappingNode::openMetrics(
+  const std::string & dir_param, const std::string & label, const std::string & meta)
 {
   std::string dir = dir_param;
   if (dir.empty()) {
@@ -267,22 +305,26 @@ void MappingNode::openMetrics(const std::string & dir_param)
     dir = std::string(home ? home : ".") + "/mapping_metrics";
   }
 
+  const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  char ts[32];
+  std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", std::localtime(&now));
+  const std::string run_dir = dir + "/" + label + "_" + ts;
+
   std::error_code ec;
-  std::filesystem::create_directories(dir, ec);
+  std::filesystem::create_directories(run_dir, ec);
   if (ec) {
-    RCLCPP_ERROR(get_logger(), "Cannot create '%s': %s", dir.c_str(), ec.message().c_str());
+    RCLCPP_ERROR(get_logger(), "Cannot create '%s': %s", run_dir.c_str(), ec.message().c_str());
     metrics_enabled_ = false;
     save_map_on_shutdown_ = false;
     return;
   }
 
-  const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-  char ts[32];
-  std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", std::localtime(&now));
-  run_prefix_ = dir + "/" + get_name() + "_" + ts;
+  run_prefix_ = run_dir + "/map";
+
+  std::ofstream(run_dir + "/params.txt") << meta;
 
   if (metrics_enabled_) {
-    const std::string path = run_prefix_ + ".csv";
+    const std::string path = run_dir + "/metrics.csv";
     metrics_file_.open(path);
     if (!metrics_file_) {
       RCLCPP_ERROR(get_logger(), "Cannot open %s", path.c_str());
@@ -290,28 +332,23 @@ void MappingNode::openMetrics(const std::string & dir_param)
       return;
     }
     metrics_file_ <<
-      "frame_id,stamp_s,points,convert_ms,process_ms,total_nodes,layer1_nodes,"
-      "layer1_edges,num_layers,dropped_total,heading_rad\n";
-    RCLCPP_INFO(get_logger(), "Recording metrics to %s", path.c_str());
+      "stamp_s,points,total_ms,total_nodes,layer1_nodes,dropped_total\n";
+    RCLCPP_INFO(get_logger(), "Run folder: %s", run_dir.c_str());
   }
 }
 
 void MappingNode::writeMetricsRow(
-  uint64_t frame_id, double stamp_s, size_t points, double convert_ms, double process_ms,
-  int total_nodes, double heading)
+  double stamp_s, size_t points, double total_ms, int total_nodes)
 {
   if (!metrics_enabled_ || !metrics_file_) {
     return;
   }
 
   const atc_core::TopologicalMap & l1 = atc_ ? atc_->map() : mlatc_->layers()[0]->map();
-  const int num_layers = atc_ ? 1 : static_cast<int>(mlatc_->layers().size());
 
-  metrics_file_ << frame_id << ',' << std::fixed << std::setprecision(6) << stamp_s << ','
-                << points << ',' << std::setprecision(3) << convert_ms << ',' << process_ms << ','
-                << total_nodes << ',' << l1.node_count() << ',' << l1.num_edges() << ','
-                << num_layers << ',' << dropped_frames_ << ','
-                << std::setprecision(4) << heading << '\n';
+  metrics_file_ << std::fixed << std::setprecision(6) << stamp_s << ','
+                << points << ',' << std::setprecision(3) << total_ms << ','
+                << total_nodes << ',' << l1.node_count() << ',' << dropped_frames_ << '\n';
   // Flushing every row is costly; in replay it is flushed once at the end.
   if (replay_bag_.empty()) {
     metrics_file_.flush();
@@ -413,13 +450,10 @@ void MappingNode::processScan(const preprocess::msg::ProcessedScan & msg)
   last_frame_id_ = msg.source_frame_id;
   have_frame_id_ = true;
 
-  const auto tc0 = std::chrono::steady_clock::now();
   atc_core::Cloud cloud;
   if (!convertCloud(msg.cloud, cloud)) {
     return;
   }
-  const double convert_ms =
-    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tc0).count();
 
   if (cloud.empty()) {
     RCLCPP_WARN_THROTTLE(
@@ -445,7 +479,6 @@ void MappingNode::processScan(const preprocess::msg::ProcessedScan & msg)
   const float heading = atc_core::heading_from_quaternion(q, up_axis_);
 
   int total_nodes = 0;
-  const auto tp0 = std::chrono::steady_clock::now();
   if (atc_) {
     atc_->process_frame(cloud, sensor, heading);
     total_nodes = atc_->total_nodes();
@@ -453,17 +486,14 @@ void MappingNode::processScan(const preprocess::msg::ProcessedScan & msg)
     mlatc_->process_frame(cloud, sensor, heading);
     total_nodes = mlatc_->total_nodes();
   }
-  const double process_ms =
-    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tp0).count();
 
   ++frames_processed_;
 
-  writeMetricsRow(
-    msg.source_frame_id, rclcpp::Time(msg.header.stamp).seconds(), cloud.size(),
-    convert_ms, process_ms, total_nodes, static_cast<double>(heading));
-
   const auto t1 = std::chrono::steady_clock::now();
   const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+  writeMetricsRow(
+    rclcpp::Time(msg.header.stamp).seconds(), cloud.size(), ms, total_nodes);
 
   RCLCPP_INFO_THROTTLE(
     get_logger(), steady_clock_, 2000,

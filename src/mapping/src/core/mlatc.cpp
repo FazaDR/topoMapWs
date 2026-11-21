@@ -32,6 +32,7 @@ int MLATC::add_layer()
   lc.theta_thr = cfg_.theta_thr;
   lc.gravity = gravity_for(cfg_.up_axis);
   lc.enable_attributes = (idx == 0);
+  lc.pool_mode = cfg_.pool_mode;
 
   layers_.push_back(std::make_unique<ATCLayer>(lc));
   return idx;

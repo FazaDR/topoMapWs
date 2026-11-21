@@ -14,6 +14,7 @@ LayerConfig make_layer_config(const ATCConfig & c)
   l.theta_thr = c.theta_thr;
   l.gravity = gravity_for(c.up_axis);
   l.enable_attributes = true;
+  l.pool_mode = c.pool_mode;
   return l;
 }
 }  // namespace

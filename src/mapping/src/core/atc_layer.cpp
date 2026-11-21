@@ -2,6 +2,9 @@
 
 #include <Eigen/Dense>
 
+#include <cstdint>
+#include <unordered_set>
+
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -204,6 +207,40 @@ void ATCLayer::remove_old_edges(int s1, double gmax)
   }
 }
 
+std::vector<float> ATCLayer::pooled_ages(int s1) const
+{
+  if (cfg_.pool_mode == PoolMode::S1Only) {
+    return map_.edge_ages_of(s1);
+  }
+
+  // One-hop pool: s1's edges + every edge of each neighbour, each edge counted once.
+  std::vector<float> ages;
+  std::unordered_set<uint64_t> seen;
+  auto add = [&](int a, int b, int age) {
+      const uint64_t lo = static_cast<uint32_t>(std::min(a, b));
+      const uint64_t hi = static_cast<uint32_t>(std::max(a, b));
+      if (seen.insert((lo << 32) | hi).second) {
+        ages.push_back(static_cast<float>(age));
+      }
+    };
+
+  const auto it = map_.graph.find(s1);
+  if (it == map_.graph.end()) {
+    return ages;
+  }
+  for (const auto & kv : it->second) {
+    add(s1, kv.first, kv.second);
+    const auto jt = map_.graph.find(kv.first);
+    if (jt == map_.graph.end()) {
+      continue;
+    }
+    for (const auto & kv2 : jt->second) {
+      add(kv.first, kv2.first, kv2.second);
+    }
+  }
+  return ages;
+}
+
 double ATCLayer::compute_gthr(const std::vector<float> & gamma) const
 {
   if (gamma.empty()) {
@@ -216,7 +253,7 @@ double ATCLayer::compute_gthr(const std::vector<float> & gamma) const
 
 double ATCLayer::compute_gmax(int s1) const
 {
-  const std::vector<float> gamma = map_.edge_ages_of(s1);
+  const std::vector<float> gamma = pooled_ages(s1);
   if (gamma.empty()) {
     return std::numeric_limits<double>::infinity();
   }

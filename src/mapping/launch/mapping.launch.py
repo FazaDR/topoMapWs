@@ -15,6 +15,7 @@ def generate_launch_description():
     replay_bag = LaunchConfiguration('replay_bag')
     replay_rate = LaunchConfiguration('replay_rate')
     replay_storage = LaunchConfiguration('replay_storage')
+    run_name = LaunchConfiguration('run_name')
 
     default_params = PathJoinSubstitution(
         [FindPackageShare('mapping'), 'config', 'mapping.yaml'])
@@ -31,6 +32,7 @@ def generate_launch_description():
                 'free_area_enabled': ParameterValue(free_area, value_type=bool),
                 'use_sim_time': ParameterValue(use_sim_time, value_type=bool),
                 'metrics.output_dir': ParameterValue(output_dir, value_type=str),
+                'metrics.run_name': ParameterValue(run_name, value_type=str),
                 'replay.bag': ParameterValue(replay_bag, value_type=str),
                 'replay.rate': ParameterValue(replay_rate, value_type=float),
                 'replay.storage_id': ParameterValue(replay_storage, value_type=str),
@@ -63,5 +65,8 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'replay_storage', default_value='sqlite3', choices=['sqlite3', 'mcap'],
             description='Bag storage backend'),
+        DeclareLaunchArgument(
+            'run_name', default_value='',
+            description='Run folder label (empty = <bag>_<algorithm>_<free|nofree>)'),
         mapping_node,
     ])

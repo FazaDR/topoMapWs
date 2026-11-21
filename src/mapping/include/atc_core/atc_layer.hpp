@@ -16,6 +16,8 @@ inline Vec3 gravity_for(UpAxis up)
   return up == UpAxis::Z ? Vec3(0.f, 0.f, -1.f) : Vec3(0.f, -1.f, 0.f);
 }
 
+enum class PoolMode { S1Only, OneHop };   // which edge ages feed the gmax statistic
+
 struct LayerConfig
 {
   float vigilance = 1.0f;
@@ -24,6 +26,7 @@ struct LayerConfig
   float theta_thr = kPi;
   Vec3 gravity = Vec3(0.f, 0.f, -1.f);
   bool enable_attributes = false;
+  PoolMode pool_mode = PoolMode::S1Only;   // NEW (default = paper behaviour)
 };
 
 struct Winners
@@ -70,6 +73,8 @@ private:
   LayerConfig cfg_;
   TopologicalMap map_;
   std::vector<int> winner_count_;   // aligned with map_ slots
+
+  std::vector<float> pooled_ages(int s1) const;
 
   int deleted_edge_count_ = 0;
   double deleted_edge_mean_ = 0.0;

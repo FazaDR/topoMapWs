@@ -19,6 +19,7 @@ struct ATCConfig
   float deg_max = 30.0f * kPi / 180.0f;
   float theta_thr = kPi;
   UpAxis up_axis = UpAxis::Z;
+  PoolMode pool_mode = PoolMode::S1Only;
   std::optional<FreeAreaConfig> free_area;   // empty -> no free-area deletion
 };
 

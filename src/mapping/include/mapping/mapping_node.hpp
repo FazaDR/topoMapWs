@@ -43,10 +43,8 @@ private:
   };
 
   // ---------------- metrics ----------------
-  void openMetrics(const std::string & dir);
-  void writeMetricsRow(
-    uint64_t frame_id, double stamp_s, size_t points, double convert_ms, double process_ms,
-    int total_nodes, double heading);
+  void openMetrics(const std::string & dir_param, const std::string & label, const std::string & meta);
+  void writeMetricsRow(double stamp_s, size_t points, double total_ms, int total_nodes);
   void saveMap(const std::string & prefix) const;
 
   std::ofstream metrics_file_;

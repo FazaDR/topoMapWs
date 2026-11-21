@@ -10,7 +10,7 @@ IdealizedLidarControllerNode::IdealizedLidarControllerNode()
 {
   world_name_ = declare_parameter<std::string>("world", "winding_room");
   model_name_ = declare_parameter<std::string>("model", "idealized_lidar");
-  speed_ = declare_parameter<double>("speed", 0.75);
+  speed_ = declare_parameter<double>("speed", 0.5);
   goal_tolerance_ = declare_parameter<double>("goal_tolerance", 0.05);
   max_yaw_rate_ = declare_parameter<double>("max_yaw_rate", 0.5);
   control_period_s_ = declare_parameter<double>("control_period", 0.02);

@@ -17,7 +17,7 @@ def visualize_ground_truth(path):
     # Surface point cloud
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.paint_uniform_color([0.65, 0.65, 0.65])
+    pcd.paint_uniform_color([0.1, 0.1, 0.1])
 
     geometries = [pcd]
 

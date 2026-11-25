@@ -38,16 +38,35 @@ std_msgs::msg::ColorRGBA rgba(float r, float g, float b, float a = 1.0f)
   return c;
 }
 
+bool isTraversalBoundary(const atc_core::TopologicalMap & m, int slot)
+{
+  const bool traversable = m.traversable[slot] != 0;
+  if (traversable && m.contour[slot]) {
+    return true;
+  }
+
+  const auto node = m.graph.find(m.node_ids[static_cast<size_t>(slot)]);
+  if (node == m.graph.end()) {
+    return false;
+  }
+  for (const auto & edge : node->second) {
+    const auto neighbor = m.id_to_slot.find(edge.first);
+    if (neighbor != m.id_to_slot.end() &&
+      (m.traversable[static_cast<size_t>(neighbor->second)] != 0) != traversable)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 std_msgs::msg::ColorRGBA attributeColor(const atc_core::TopologicalMap & m, int slot)
 {
-  if (m.normals[slot].norm() <= 1e-8f) {
-    return rgba(0.6f, 0.6f, 0.6f);
-  }
   if (!m.traversable[slot]) {
     return rgba(1.0f, 0.0f, 0.0f);
   }
-  if (m.contour[slot]) {
-    return rgba(0.0f, 1.0f, 0.0f);
+  if (m.normals[slot].norm() <= 1e-8f) {
+    return rgba(0.6f, 0.6f, 0.6f);
   }
   return rgba(0.0f, 0.0f, 1.0f);
 }
@@ -694,7 +713,9 @@ void MappingNode::appendLayerMarkers(
   std::vector<std_msgs::msg::ColorRGBA> colors(static_cast<size_t>(n));
   for (int s = 0; s < n; ++s) {
     const size_t i = static_cast<size_t>(s);
-    if (free_flags != nullptr && i < free_flags->size() && (*free_flags)[i]) {
+    if (attributes && isTraversalBoundary(map, s)) {
+      colors[i] = rgba(0.0f, 1.0f, 0.0f);
+    } else if (free_flags != nullptr && i < free_flags->size() && (*free_flags)[i]) {
       colors[i] = freeAreaNodeColor();
     } else {
       colors[i] = attributes ? attributeColor(map, s) : layerColor(layer_index);

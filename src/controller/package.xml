@@ -3,7 +3,7 @@
 <package format="3">
   <name>controller</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Waypoint-based controllers for simulated robots.</description>
   <maintainer email="rafsanjanidipa@gmail.com">faza</maintainer>
   <license>TODO: License declaration</license>
 
@@ -12,6 +12,7 @@
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>rcl_interfaces</depend>
   <depend>gz-transport13</depend>
   <depend>gz-msgs10</depend>
 

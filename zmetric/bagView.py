@@ -17,7 +17,7 @@ from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 
 # ============================ SETTINGS (edit here) ============================
-BAG_DIR      = "/home/faza/topoMapWs/win_ideal_2"
+BAG_DIR      = "/home/faza/topoMapWs/win_ideal_many"
 STORAGE_ID   = "sqlite3"
 TOPIC        = "/mapping/processed_scan"
 TF_TOPIC     = "/tf"
@@ -27,7 +27,7 @@ GT_MODULE    = "ground_truth"
 
 BG_STRIDE    = 12          # keep every Nth point of every scan in the accumulated cloud
 SCAN_STRIDE  = 2           # keep every Nth point for the current scan
-Z_MIN_SHOW   = 0.10        # hide the floor (set -1 to show it)
+Z_MIN_SHOW   = -1        # hide the floor (set -1 to show it)
 Z_MAX_SHOW   = 3.0
 BG_COLOR_BY  = "frame"     # "frame" | "height"
 ERR_CLIM     = 0.5         # distance-to-GT color scale [m]

@@ -1,0 +1,6 @@
+/**:
+  ros__parameters:
+    # Spawn x = 1.5; stop 1.3 m before the end cap's inner face at x = 999.8.
+    waypoints: [
+      997.0, 0.0,
+    ]

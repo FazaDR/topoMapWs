@@ -2,245 +2,86 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+
+using controller::StepContext;
+using controller::wrapAngle;
 
 ControllerNode::ControllerNode()
-: Node("controller_node"),
-  robot_x_(0.0),
-  robot_y_(0.0),
-  robot_yaw_(0.0),
-  initialized_(false),
-  origin_x_(0.0),
-  origin_y_(0.0),
-  origin_yaw_(0.0),
-  current_waypoint_(0),
-  state_(State::ROTATE)
+: controller::ControllerBase("ddmr_controller", "ddmr", true)
 {
-    waypoints_ = {
-        {16, 0},
-        {16, -4},
-        {0.0, -4},
-        {0.0, -8},
-        {16.0, -8},
-        {16.0, -12},
-        {0.0, -12},
-        {0.0, -16},
-        {16.0, -16},
-        {16.0, -21},
-        {-4.0, -21},
-        {-4.0, 0.0},
-        {0.0, 0.0},
-    };
+  angular_gain_ = declare_parameter<double>("angular_gain", 2.0);
+  max_angular_ = declare_parameter<double>("max_angular", 5.0);
+  linear_gain_ = declare_parameter<double>("linear_gain", 0.4);
+  max_linear_ = declare_parameter<double>("max_linear", 3.0);
+  heading_threshold_ = declare_parameter<double>("heading_threshold_deg", 5.0) * M_PI / 180.0;
+  drive_steer_gain_ = declare_parameter<double>("drive_steer_gain", 0.0);
+  const std::string cmd_topic = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
 
-    const auto world = declare_parameter<std::string>("world", "winding_room");
+  if (max_linear_ <= 0.0 || max_angular_ <= 0.0) {
+    throw std::invalid_argument("max_linear and max_angular must be positive");
+  }
 
-    gz_node_.Subscribe(
-        "/world/" + world + "/dynamic_pose/info",
-        &ControllerNode::poseCallback,
-        this);
+  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_topic, 10);
 
-    cmd_vel_pub_ =
-        create_publisher<geometry_msgs::msg::Twist>(
-            "/cmd_vel",
-            10);
-
-    control_timer_ =
-        create_wall_timer(
-            std::chrono::milliseconds(50),
-            std::bind(&ControllerNode::controlLoop, this));
-
-    RCLCPP_INFO(get_logger(), "Controller node started.");
+  RCLCPP_INFO(
+    get_logger(), "ddmr controller: model=%s world=%s cmd=%s period %.0f ms.",
+    model_.c_str(), world_.c_str(), cmd_topic.c_str(), period_s_ * 1000.0);
 }
 
-void ControllerNode::poseCallback(const gz::msgs::Pose_V &msg)
+void ControllerNode::publishStop()
 {
-    for (int i = 0; i < msg.pose_size(); ++i)
-    {
-        const auto &pose = msg.pose(i);
-
-        if (pose.name() != "ddmr")
-            continue;
-
-        robot_x_ = pose.position().x();
-        robot_y_ = pose.position().y();
-
-        const auto &q = pose.orientation();
-
-        robot_yaw_ = std::atan2(
-            2.0 * (q.w()*q.z() + q.x()*q.y()),
-            1.0 - 2.0 * (q.y()*q.y() + q.z()*q.z()));
-
-        if (!initialized_)
-        {
-            origin_x_ = robot_x_;
-            origin_y_ = robot_y_;
-            origin_yaw_ = robot_yaw_;
-
-            initialized_ = true;
-
-            RCLCPP_INFO(get_logger(), "Local frame initialized.");
-        }
-
-        break;
-    }
+  cmd_vel_pub_->publish(geometry_msgs::msg::Twist());
 }
 
-void ControllerNode::controlLoop()
+bool ControllerNode::step(const StepContext & c)
 {
-    if (!initialized_)
-        return;
+  const auto & goal = c.target;
 
-    if (state_ == State::FINISHED)
-        return;
+  // Leg direction (previous waypoint -> goal).
+  double px = goal.x - c.previous.x;
+  double py = goal.y - c.previous.y;
+  const double path_length = std::hypot(px, py);
+  if (path_length < 1e-6) {
+    RCLCPP_WARN(get_logger(), "Waypoint is identical to the previous one, skipping it.");
+    return true;
+  }
+  px /= path_length;
+  py /= path_length;
 
-    geometry_msgs::msg::Twist cmd;
+  const double distance = std::hypot(goal.x - c.pose.x, goal.y - c.pose.y);
 
-    //------------------------------------------
-    // Local pose
-    //------------------------------------------
+  // Tracking errors relative to the goal.
+  const double gx = c.pose.x - goal.x;
+  const double gy = c.pose.y - goal.y;
+  const double along_track = gx * px + gy * py;
+  const double cross_track = gx * (-py) + gy * px;
 
-    double x = robot_x_ - origin_x_;
-    double y = robot_y_ - origin_y_;
-    double yaw = robot_yaw_ - origin_yaw_;
+  const double desired_heading = std::atan2(py, px) - std::atan2(2.0 * cross_track, 1.0);
+  const double heading_error = wrapAngle(desired_heading - c.pose.yaw);
 
-    //------------------------------------------
-    // Goal
-    //------------------------------------------
+  geometry_msgs::msg::Twist cmd;
+  bool reached = false;
 
-    const auto &goal = waypoints_[current_waypoint_];
-
-    Waypoint previous =
-        (current_waypoint_ == 0)
-        ? Waypoint{0.0, 0.0}
-        : waypoints_[current_waypoint_ - 1];
-
-    double distance = std::hypot(goal.x - x, goal.y - y);
-
-    //------------------------------------------
-    // Path direction
-    //------------------------------------------
-
-    double path_x = goal.x - previous.x;
-    double path_y = goal.y - previous.y;
-
-    double path_length = std::hypot(path_x, path_y);
-
-    if (path_length < 1e-6)
-    {
-        RCLCPP_WARN(
-            get_logger(),
-            "Waypoint %zu is identical to previous waypoint.",
-            current_waypoint_);
-        return;
+  if (state_ == State::ROTATE) {
+    cmd.angular.z = std::clamp(angular_gain_ * heading_error, -max_angular_, max_angular_);
+    if (std::abs(heading_error) < heading_threshold_) {
+      state_ = State::DRIVE;
     }
-
-    path_x /= path_length;
-    path_y /= path_length;
-
-    //------------------------------------------
-    // Tracking errors
-    //------------------------------------------
-
-    double goal_to_robot_x = x - goal.x;
-    double goal_to_robot_y = y - goal.y;
-
-    double along_track =
-        goal_to_robot_x * path_x +
-        goal_to_robot_y * path_y;
-
-    double cross_track =
-        goal_to_robot_x * (-path_y) +
-        goal_to_robot_y * path_x;
-
-    double desired_heading =
-        std::atan2(path_y, path_x)
-        - std::atan2(2.0 * cross_track, 1.0);
-
-    double heading_error = desired_heading - yaw;
-
-    while (heading_error > M_PI)
-        heading_error -= 2.0 * M_PI;
-
-    while (heading_error < -M_PI)
-        heading_error += 2.0 * M_PI;
-
-    //------------------------------------------
-    // State Machine
-    //------------------------------------------
-
-    constexpr double heading_threshold = 5.0 * M_PI / 180.0;
-    constexpr double goal_threshold = 0.05;
-
-    switch (state_)
-    {
-    case State::ROTATE:
-    {
-        cmd.angular.z = std::clamp(
-            2.0 * heading_error,
-            -5.0,
-            5.0);
-
-        if (std::abs(heading_error) < heading_threshold)
-        {
-            state_ = State::DRIVE;
-
-            RCLCPP_INFO(
-                get_logger(),
-                "Heading aligned.");
-        }
-
-        break;
+  } else {
+    cmd.linear.x = std::clamp(linear_gain_ * distance, 0.0, max_linear_);
+    cmd.angular.z =
+      std::clamp(drive_steer_gain_ * heading_error, -max_angular_, max_angular_);
+    if (along_track >= 0.0 || distance < goal_tolerance_) {
+      reached = true;
+      cmd = geometry_msgs::msg::Twist();   // stop at the waypoint, then rotate
     }
+  }
 
-    case State::DRIVE:
-    {
-        cmd.linear.x = std::clamp(
-            0.4 * distance,
-            0.0,
-            3.0);
+  cmd_vel_pub_->publish(cmd);
 
-        if (along_track >= 0.0 || distance < goal_threshold)
-        {
-            current_waypoint_++;
-
-            if (current_waypoint_ >= waypoints_.size())
-            {
-                state_ = State::FINISHED;
-
-                cmd.linear.x = 0.0;
-                cmd.angular.z = 0.0;
-
-                RCLCPP_INFO(
-                    get_logger(),
-                    "Mission complete.");
-            }
-            else
-            {
-                state_ = State::ROTATE;
-
-                RCLCPP_INFO(
-                    get_logger(),
-                    "Waypoint %zu reached.",
-                    current_waypoint_ - 1);
-            }
-        }
-
-        break;
-    }
-
-    case State::FINISHED:
-        break;
-    }
-
-    cmd_vel_pub_->publish(cmd);
-
-    RCLCPP_INFO_THROTTLE(
-        get_logger(),
-        *get_clock(),
-        1000,
-        "Pose (%.2f %.2f) Goal (%.2f %.2f) State %d",
-        x,
-        y,
-        goal.x,
-        goal.y,
-        static_cast<int>(state_));
+  RCLCPP_INFO_THROTTLE(
+    get_logger(), *get_clock(), 1000, "Pose (%.2f %.2f) Goal (%.2f %.2f) State %s",
+    c.pose.x, c.pose.y, goal.x, goal.y, state_ == State::ROTATE ? "ROTATE" : "DRIVE");
+  return reached;
 }

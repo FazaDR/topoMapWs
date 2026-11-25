@@ -27,7 +27,7 @@
 
     <light name="sun" type="directional">
       <cast_shadows>true</cast_shadows>
-      <pose>250 0 20 0 0 0</pose>
+      <pose>500 0 20 0 0 0</pose>
       <diffuse>1 1 1 1</diffuse>
       <specular>0.2 0.2 0.2 1</specular>
       <attenuation>
@@ -42,13 +42,13 @@
     <!-- Floor (top surface at z = 0) -->
     <model name="floor">
       <static>true</static>
-      <pose>250 0 -0.1 0 0 0</pose>
+      <pose>500 0 -0.1 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>500 12 0.2</size></box></geometry>
+          <geometry><box><size>1000 12 0.2</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>500 12 0.2</size></box></geometry>
+          <geometry><box><size>1000 12 0.2</size></box></geometry>
           <material>
             <ambient>0.92 0.92 0.92 1</ambient>
             <diffuse>0.92 0.92 0.92 1</diffuse>
@@ -60,26 +60,26 @@
     <!-- Side walls -->
     <model name="wall_left">
       <static>true</static>
-      <pose>250 5.9 3 0 0 0</pose>
+      <pose>500 5.9 3 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>500 0.2 6</size></box></geometry>
+          <geometry><box><size>1000 0.2 6</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>500 0.2 6</size></box></geometry>
+          <geometry><box><size>1000 0.2 6</size></box></geometry>
         </visual>
       </link>
     </model>
 
     <model name="wall_right">
       <static>true</static>
-      <pose>250 -5.9 3 0 0 0</pose>
+      <pose>500 -5.9 3 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>500 0.2 6</size></box></geometry>
+          <geometry><box><size>1000 0.2 6</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>500 0.2 6</size></box></geometry>
+          <geometry><box><size>1000 0.2 6</size></box></geometry>
         </visual>
       </link>
     </model>
@@ -100,7 +100,7 @@
 
     <model name="wall_end">
       <static>true</static>
-      <pose>499.9 0 3 0 0 0</pose>
+      <pose>999.9 0 3 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><box><size>0.2 12 6</size></box></geometry>

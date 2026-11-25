@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
 import numpy as np
 import open3d as o3d
 
+GT_PATH = "/home/faza/topoMapWs/zmetric/gt_long.npz"
 
-def visualize_ground_truth(path):
-    data = np.load(path, allow_pickle=False)
+
+def visualize_ground_truth():
+    data = np.load(GT_PATH, allow_pickle=False)
 
     points = data["surface"]
     centers = data["centers"]
@@ -39,7 +40,7 @@ def visualize_ground_truth(path):
     )
     geometries.append(frame)
 
-    print(f"Ground truth: {path}")
+    print(f"Ground truth: {GT_PATH}")
     print(f"Models: {sorted(set(names))}")
     print(f"Bounding boxes: {len(centers)}")
     print(f"Surface points: {len(points)}")
@@ -54,8 +55,4 @@ def visualize_ground_truth(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python view_gt.py <ground_truth.npz>")
-        sys.exit(1)
-
-    visualize_ground_truth(sys.argv[1])
+    visualize_ground_truth()

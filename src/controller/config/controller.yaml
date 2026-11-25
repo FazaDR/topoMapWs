@@ -1,0 +1,25 @@
+idealized_lidar_controller:
+  ros__parameters:
+    model: "idealized_lidar"
+    control_period: 0.02          # [s] sim time
+    goal_tolerance: 0.05          # [m]
+    speed: 4.0                    # [m/s]
+    turn_mode: "smooth"           # "snap" or "smooth"
+    max_yaw_rate: 1.0             # [rad/s] smooth mode
+    align_threshold_deg: 2.0
+    turn_dwell_s: 0.5             # snap mode pause before/after the jump
+    shutdown_on_finish: false
+
+ddmr_controller:
+  ros__parameters:
+    model: "ddmr"
+    control_period: 0.05
+    goal_tolerance: 0.05
+    cmd_vel_topic: "/cmd_vel"
+    linear_gain: 0.4
+    max_linear: 3.0
+    angular_gain: 2.0
+    max_angular: 5.0
+    heading_threshold_deg: 5.0
+    drive_steer_gain: 0.0         # >0 enables heading correction while driving
+    shutdown_on_finish: false

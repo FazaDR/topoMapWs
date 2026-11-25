@@ -2,12 +2,11 @@
 """
 Ground truth from an SDF world: oriented boxes -> surface points + 2D occupancy grid.
 
-  python gt.py winding_room.world --out gt_winding.npz
-  python gt.py divider_room.world --out gt_divider_full.npz
-  python gt.py divider_room.world --exclude disappearing_wall --out gt_divider_removed.npz
+  python ground_truth.py
 
-Supports: <model>/<link>/<collision>/<geometry>/<box>, nested poses (model * link * collision),
-<include> (resolved through --models-dir), roll/pitch/yaw rotation.
+Edit WORLD_DIR, WORLD_NAME, and OUTPUT_PATH below to choose the world and output file.
+Supports: <model>/<link>/<collision>/<geometry>/<box>, nested poses
+(model * link * collision), <include>, roll/pitch/yaw rotation.
 Ignores non-box geometry (a warning is printed).
 """
 import argparse
@@ -15,6 +14,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+
+WORLD_DIR = Path("/home/faza/topoMapWs/src/scenarios/worlds")
+WORLD_NAME = "long_room"
+MODELS_DIR = Path("/home/faza/topoMapWs/src/scenarios/models")
+OUTPUT_PATH = Path("/home/faza/topoMapWs/zmetric/gt_long.npz")
 
 
 # ----------------------------------------------------------------------------
@@ -260,10 +264,7 @@ def from_world(world, exclude=(), models_dir=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("world")
-    ap.add_argument("--out", required=True)
     ap.add_argument("--exclude", nargs="*", default=[], help="model names to leave out")
-    ap.add_argument("--models-dir", default=None, help="folder for <include> model:// lookups")
     ap.add_argument("--step", type=float, default=0.05, help="surface sample spacing [m]")
     ap.add_argument("--res", type=float, default=0.05, help="grid resolution [m]")
     ap.add_argument("--robot-radius", type=float, default=0.3)
@@ -272,16 +273,17 @@ def main():
     ap.add_argument("--preview", default=None, help="save a PNG preview here")
     a = ap.parse_args()
 
-    gt = from_world(a.world, a.exclude, a.models_dir)
+    world_path = WORLD_DIR / f"{WORLD_NAME}.world"
+    gt = from_world(world_path, a.exclude, MODELS_DIR)
     gt.sample_surface(a.step)
     gt.build_grid(a.res, a.z_min, a.z_max, a.robot_radius)
-    gt.save(a.out)
+    gt.save(OUTPUT_PATH)
 
     print(f"{len(gt.names)} boxes: {sorted(set(gt.names))}")
     print(f"surface points: {len(gt.surface)}")
     print(f"grid: {gt.grid.shape} @ {gt.res} m, origin {gt.origin}, "
           f"occupied {gt.grid.mean():.1%}, inflated {gt.grid_inflated.mean():.1%}")
-    print(f"saved {a.out}")
+    print(f"saved {OUTPUT_PATH}")
 
     if a.preview:
         import matplotlib

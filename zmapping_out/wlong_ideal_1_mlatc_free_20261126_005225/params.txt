@@ -1,0 +1,16 @@
+algorithm: mlatc
+free_area_enabled: 1
+source: /home/faza/topoMapWs/wlong_ideal_1
+lambda_points: 1000
+seed: 42
+vigilance: 0.2
+base_vigilance: 0.2
+alpha: 4
+deg_max_deg: 30
+theta_thr_deg: 180
+pool_mode: s1
+free_area.sectors: 24
+free_area.horizontal_band: 0.15
+free_area.distance: 0.17
+free_area.fov_degrees: 360
+free_area.margin: 0.1

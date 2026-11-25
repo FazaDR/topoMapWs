@@ -15,6 +15,7 @@ def generate_launch_description():
     replay_bag = LaunchConfiguration('replay_bag')
     replay_rate = LaunchConfiguration('replay_rate')
     replay_storage = LaunchConfiguration('replay_storage')
+    save_map = LaunchConfiguration('save_map')
     run_name = LaunchConfiguration('run_name')
 
     default_params = PathJoinSubstitution(
@@ -36,6 +37,7 @@ def generate_launch_description():
                 'replay.bag': ParameterValue(replay_bag, value_type=str),
                 'replay.rate': ParameterValue(replay_rate, value_type=float),
                 'replay.storage_id': ParameterValue(replay_storage, value_type=str),
+                'replay.save_map': ParameterValue(save_map, value_type=bool),
             },
         ],
     )
@@ -65,6 +67,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'replay_storage', default_value='sqlite3', choices=['sqlite3', 'mcap'],
             description='Bag storage backend'),
+        DeclareLaunchArgument(
+            'save_map', default_value='true', choices=['true', 'false'],
+            description='Save map CSVs when replay finishes'),
         DeclareLaunchArgument(
             'run_name', default_value='',
             description='Run folder label (empty = <bag>_<algorithm>_<free|nofree>)'),

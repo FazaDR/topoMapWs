@@ -1,59 +1,34 @@
 #pragma once
 
-#include <vector>
-
-#include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
-#include <gz/transport/Node.hh>
-#include <gz/msgs/pose_v.pb.h>
+#include "controller/controller_base.hpp"
 
-class ControllerNode : public rclcpp::Node
+// Differential-drive tracker: rotate in place, then drive along the leg.
+// Reads Gazebo's pose every update (closed loop) and publishes /cmd_vel.
+class ControllerNode : public controller::ControllerBase
 {
 public:
-    ControllerNode();
+  ControllerNode();
+
+protected:
+  bool step(const controller::StepContext & ctx) override;
+  void onNewTarget() override {state_ = State::ROTATE;}
+  void onFinished() override {publishStop();}
 
 private:
+  enum class State { ROTATE, DRIVE };
 
-    struct Waypoint
-    {
-        double x;
-        double y;
-    };
+  void publishStop();
 
-    enum class State
-    {
-        ROTATE,
-        DRIVE,
-        FINISHED
-    };
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 
-    // Gazebo
-    gz::transport::Node gz_node_;
+  double angular_gain_{2.0};
+  double max_angular_{5.0};
+  double linear_gain_{0.4};
+  double max_linear_{3.0};
+  double heading_threshold_{5.0 * M_PI / 180.0};
+  double drive_steer_gain_{0.0};     // 0 = no steering while driving (previous behaviour)
 
-    // ROS
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
-    rclcpp::TimerBase::SharedPtr control_timer_;
-
-    // Robot pose (world)
-    double robot_x_;
-    double robot_y_;
-    double robot_yaw_;
-
-    // Local frame
-    bool initialized_;
-    double origin_x_;
-    double origin_y_;
-    double origin_yaw_;
-
-    // Path
-    std::vector<Waypoint> waypoints_;
-    std::size_t current_waypoint_;
-
-    // Controller state
-    State state_;
-
-    // Callbacks
-    void poseCallback(const gz::msgs::Pose_V &msg);
-    void controlLoop();
+  State state_{State::ROTATE};
 };

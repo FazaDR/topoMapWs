@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GZ_TRANSPORT REQUIRED gz-transport13)
@@ -39,11 +40,14 @@ add_executable(idealized_lidar_controller
 ament_target_dependencies(controller_node
   rclcpp
   geometry_msgs
+  nav_msgs
+  rcl_interfaces
 )
 
 ament_target_dependencies(idealized_lidar_controller
   rclcpp
   nav_msgs
+  rcl_interfaces
 )
 
 target_link_libraries(controller_node
@@ -64,6 +68,10 @@ install(TARGETS
 
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
 )
 
 ament_package()

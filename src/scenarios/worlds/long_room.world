@@ -1,38 +1,5 @@
 <?xml version="1.0"?>
-<sdf version="1.9" xmlns:xacro="http://ros.org/wiki/xacro">
-
-  <!-- ===================================================== -->
-  <!-- Parameters (override from the command line)           -->
-  <!--   xacro long_room.sdf.xacro room_length:=500          -->
-  <!-- ===================================================== -->
-  <xacro:arg name="room_length"    default="500.0"/>
-  <xacro:arg name="room_width"     default="12.0"/>
-  <xacro:arg name="wall_height"    default="6.0"/>
-  <xacro:arg name="wall_thickness" default="0.2"/>
-  <xacro:arg name="floor_thick"    default="0.2"/>
-  <xacro:arg name="end_caps"       default="true"/>
-
-  <xacro:property name="L"  value="$(arg room_length)"/>
-  <xacro:property name="W"  value="$(arg room_width)"/>
-  <xacro:property name="H"  value="$(arg wall_height)"/>
-  <xacro:property name="T"  value="$(arg wall_thickness)"/>
-  <xacro:property name="FT" value="$(arg floor_thick)"/>
-
-  <!-- Static box model: name, center x y z, size x y z -->
-  <xacro:macro name="static_box" params="name x y z sx sy sz">
-    <model name="${name}">
-      <static>true</static>
-      <pose>${x} ${y} ${z} 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry><box><size>${sx} ${sy} ${sz}</size></box></geometry>
-        </collision>
-        <visual name="visual">
-          <geometry><box><size>${sx} ${sy} ${sz}</size></box></geometry>
-        </visual>
-      </link>
-    </model>
-  </xacro:macro>
+<sdf version="1.9">
 
   <world name="long_room">
 
@@ -60,7 +27,7 @@
 
     <light name="sun" type="directional">
       <cast_shadows>true</cast_shadows>
-      <pose>${L/2} 0 20 0 0 0</pose>
+      <pose>250 0 20 0 0 0</pose>
       <diffuse>1 1 1 1</diffuse>
       <specular>0.2 0.2 0.2 1</specular>
       <attenuation>
@@ -72,18 +39,16 @@
       <direction>-0.5 0.3 -1</direction>
     </light>
 
-    <!-- ===================================================== -->
-    <!-- Floor: top surface at z = 0                            -->
-    <!-- ===================================================== -->
+    <!-- Floor (top surface at z = 0) -->
     <model name="floor">
       <static>true</static>
-      <pose>${L/2} 0 ${-FT/2} 0 0 0</pose>
+      <pose>250 0 -0.1 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><box><size>${L} ${W} ${FT}</size></box></geometry>
+          <geometry><box><size>500 12 0.2</size></box></geometry>
         </collision>
         <visual name="visual">
-          <geometry><box><size>${L} ${W} ${FT}</size></box></geometry>
+          <geometry><box><size>500 12 0.2</size></box></geometry>
           <material>
             <ambient>0.92 0.92 0.92 1</ambient>
             <diffuse>0.92 0.92 0.92 1</diffuse>
@@ -92,23 +57,87 @@
       </link>
     </model>
 
-    <!-- ===================================================== -->
-    <!-- Side walls (inside the width, like the Python script)  -->
-    <!-- ===================================================== -->
-    <xacro:static_box name="wall_left"  x="${L/2}" y="${W/2 - T/2}"  z="${H/2}"
-                      sx="${L}" sy="${T}" sz="${H}"/>
-    <xacro:static_box name="wall_right" x="${L/2}" y="${-(W/2 - T/2)}" z="${H/2}"
-                      sx="${L}" sy="${T}" sz="${H}"/>
+    <!-- Side walls -->
+    <model name="wall_left">
+      <static>true</static>
+      <pose>250 5.9 3 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>500 0.2 6</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>500 0.2 6</size></box></geometry>
+        </visual>
+      </link>
+    </model>
 
-    <!-- ===================================================== -->
-    <!-- End caps (set end_caps:=false for an open corridor)    -->
-    <!-- ===================================================== -->
-    <xacro:if value="$(arg end_caps)">
-      <xacro:static_box name="wall_start" x="${T/2}"     y="0" z="${H/2}"
-                        sx="${T}" sy="${W}" sz="${H}"/>
-      <xacro:static_box name="wall_end"   x="${L - T/2}" y="0" z="${H/2}"
-                        sx="${T}" sy="${W}" sz="${H}"/>
-    </xacro:if>
+    <model name="wall_right">
+      <static>true</static>
+      <pose>250 -5.9 3 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>500 0.2 6</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>500 0.2 6</size></box></geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- End caps (delete these two models for an open corridor) -->
+    <model name="wall_start">
+      <static>true</static>
+      <pose>0.1 0 3 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 12 6</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12 6</size></box></geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_end">
+      <static>true</static>
+      <pose>499.9 0 3 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 12 6</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12 6</size></box></geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- LiDAR rig (disabled)
+    <model name="lidar_rig">
+      <static>true</static>
+      <pose>1.5 0 2.0 0 0 0</pose>
+      <link name="lidar_link">
+        <sensor name="lidar" type="gpu_lidar">
+          <update_rate>10</update_rate>
+          <topic>/lidar/points</topic>
+          <lidar>
+            <scan>
+              <horizontal>
+                <samples>128</samples>
+                <min_angle>-3.14159</min_angle>
+                <max_angle>3.14159</max_angle>
+              </horizontal>
+              <vertical>
+                <samples>64</samples>
+                <min_angle>-1.22173</min_angle>
+                <max_angle>1.22173</max_angle>
+              </vertical>
+            </scan>
+            <range><min>0.1</min><max>20.0</max></range>
+          </lidar>
+        </sensor>
+      </link>
+    </model>
+    -->
 
   </world>
 </sdf>

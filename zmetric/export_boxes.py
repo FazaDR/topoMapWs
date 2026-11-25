@@ -4,7 +4,7 @@ sys.path.insert(0, "/home/faza/topoMapWs/zmetric")
 from ground_truth import load_boxes
 
 WORLD_DIR = "/home/faza/topoMapWs/src/scenarios/worlds/"
-for world in ("winding_room", "divider_room"):
+for world in ("winding_room", "divider_room", "long_room"):
     boxes = load_boxes(WORLD_DIR + world + ".world")       # all boxes, incl. disappearing_wall
     with open(WORLD_DIR + world + ".boxes", "w") as f:
         f.write("# name cx cy cz  R(row-major, 9)  hx hy hz\n")

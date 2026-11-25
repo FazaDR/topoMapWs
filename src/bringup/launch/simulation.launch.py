@@ -61,7 +61,10 @@ def generate_launch_description():
                         robot_model,
                         "' == 'idealized_lidar' and '",
                         world_name,
-                        "' == 'divider_room' else '-8.5'",
+                        "' == 'divider_room' else "
+                        "'1.5' if '",
+                        world_name,
+                        "' == 'long_room' else '-8.5'",
                     ]),
                     '-y',
                     PythonExpression([
@@ -69,7 +72,10 @@ def generate_launch_description():
                         robot_model,
                         "' == 'idealized_lidar' and '",
                         world_name,
-                        "' == 'divider_room' else '8.5'",
+                        "' == 'divider_room' else "
+                        "'0.0' if '",
+                        world_name,
+                        "' == 'long_room' else '8.5'",
                     ]),
                     '-z',
                     PythonExpression([
@@ -101,7 +107,7 @@ def generate_launch_description():
             "'",
             world_name,
             "' == 'divider_room'"
-        ])),    
+        ])),
         output='screen',
     )
 
@@ -151,7 +157,6 @@ def generate_launch_description():
         output='screen',
     )
 
-
     clock_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -160,9 +165,6 @@ def generate_launch_description():
         ],
         output='screen',
     )
-
-
-
 
     idealized_lidar_controller = Node(
         package='controller',
@@ -210,7 +212,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'world',
             default_value='winding_room',
-            choices=['winding_room', 'divider_room'],
+            choices=['winding_room', 'divider_room', 'long_room'],
             description='Simulation world to launch',
         ),
         DeclareLaunchArgument(
